@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1562719970368.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2519642624",
+    "id" : "816F019B",
+    "lastKnownWriteTime" : 1562719670,
+    "last_content_update" : 1562719670,
+    "path" : "~/Documents/research/dplR_dev/xdatePretty/xdateR/server.R",
+    "project_path" : "server.R",
+    "properties" : {
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

@@ -1,0 +1,7 @@
+## Preamble
+
+Welcome to xDateR -- a Shiny app for crossdating tree-ring data. This app will help you do initial quality control on a set of (usually) ring widths and potentially identify dating problems. This uses the existing functions in the `dplR` package. The idea for this app is to provide an interactive environment for assessing dating quality and potentially fixing problems without having to script everything out.
+
+Each tab in this app contains tools for reading in data via a standard `rwl` file read in via `read.rwl()` in `dplR`. Reading in a dataed file is the beginning of the cross-dating process. The `Correlations between Series` tab produces standard correlation statistics based on segment lengths and other options specified by the user. The `Series Correlation` tab allows individual series to be further invetigated and edited to potentialy correct dating problems. Finally floaters.
+
+Remember! Users should never rely purely on statistical crossdating but always go back to the wood to verify what is actually happening. 

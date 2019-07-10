@@ -1,0 +1,2 @@
+### Upload a RWL file
+Upload a standard file of ring widths (.rwl) in one of the available formats in `read.rwl` (e.g., a tucson/decadal file). Standard descriptive statistics and a plot are produced.

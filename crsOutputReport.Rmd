@@ -1,0 +1,61 @@
+---
+title: "Report: Correlations between Series"
+output: html_document
+params:
+  fileName: NA
+  rwlObject: NA
+  crsObject: NA
+  crsParams: NA
+---
+
+```{r,echo=FALSE}
+crsObject <- params$crsObject
+crsParams <- params$crsParams
+```
+
+The original file passed in to the xDateR app:
+```{r}
+params$fileName
+```
+
+The `rwl` data after filtering:
+
+```{r,echo=FALSE}
+rwl.report(params$rwlObject)
+```
+
+```{r,echo=FALSE}
+plot(params$rwlObject)
+```
+
+
+Parameters in `corr.rwl.seg()`:
+
+```{r,echo=FALSE}
+tab1 <- data.frame(Parameter=c("seg.length","bin.floor","n",
+                               "prewhiten","pcrit","biweight","method"),
+                   Value=c(crsObject$seg.length,crsParams$bin.floor,
+                           crsParams$n, crsParams$prewhiten, 
+                           crsParams$pcrit, crsParams$biweight,
+                           crsParams$method))
+kable(tab1,caption="corr.rwl.seg() params")
+```
+
+
+`corr.rwl.seg()` plot:
+
+```{r,echo=FALSE}
+plot(crsObject)
+```
+
+Overall correlation:
+
+```{r,echo=FALSE}
+overallCor <- round(crsObject$overall,3)
+res <- data.frame(Series=rownames(overallCor),
+                  Correlation=overallCor[,1])
+kable(res,row.names = FALSE)
+```
+
+
+
