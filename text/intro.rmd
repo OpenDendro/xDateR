@@ -1,6 +1,6 @@
 ## Preamble
 
-WARNING: THIS IS HEAVILY IN DEVELOPMENT LAND. THERE BE DRAGONS.
+WARNING: THIS IS HEAVILY IN DEVELOPMENT LAND. THERE BE DRAGONS HERE.
 
 Welcome to xDateR -- a Shiny app for crossdating tree-ring data. This app will help you do initial quality control on a set of (usually) ring widths and potentially identify dating problems. This uses the existing functions in the `dplR` package. The idea for this app is to provide an interactive environment for assessing dating quality and potentially fixing problems without having to script everything out.
 
