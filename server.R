@@ -103,12 +103,12 @@ shinyServer(function(session, input, output) {
   
   output$rwlReport <- renderPrint({
     req(input$file1)
-    rwl.report(getRWL())
+    rwl.report(filteredRWL())
   })
   
   output$rwlPlot <- renderPlot({
     req(input$file1)
-    plot(getRWL())
+    plot(filteredRWL())
   })
   
   output$rwlSummary <- renderTable({
@@ -166,8 +166,8 @@ shinyServer(function(session, input, output) {
   output$crsFlags <- renderTable({
     # when done uncomment
     req(input$file1)
-    foo <- getCRS()
-    flags <- foo$flags
+    crsObject <- getCRS()
+    flags <- crsObject$flags
     if(length(flags) == 0){flagsDF <- NULL}
     else{
       flags <- unlist(flags)
@@ -177,7 +177,7 @@ shinyServer(function(session, input, output) {
                                       x = flags))  
     }
     flagsDF
-  },caption = "Flagged Segments", caption.placement = "top",
+  },caption = "Flagged Series and Segments", caption.placement = "top",
   rownames= FALSE)
   
   ##############################################################
@@ -204,8 +204,8 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$crsReport <- downloadHandler(
-    # For PDF output, change this to "report.pdf"
-    filename = "report.html",
+    # For PDF output, change this to ".pdf"
+    filename = "crsReport.html",
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
@@ -237,4 +237,16 @@ shinyServer(function(session, input, output) {
       )
     }
   )
+  
+  ##############################################################
+  #
+  # 3rd tab -- plot the results from corr.series.seg
+  #
+  ##############################################################
+  output$cssPlot <- renderPlot({
+    req(input$file1)
+    dat <- filteredRWL()
+    corr.series.seg(dat,1)
+  })
+  
 })

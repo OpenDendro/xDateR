@@ -6,18 +6,19 @@ ui <- fluidPage(
   
   title = "xDateR",
   tabsetPanel(type = "tabs",
-              # first tab ----
+              # 1st tab ----
               tabPanel("Introduction",
                        includeMarkdown("text/intro.rmd")
               ),
+              # 2nd tab ----
               tabPanel("Upload RWL Data",
                        includeMarkdown("text/upload.rmd"),
                        hr(),
-                       # Sidebar layout with input and output definitions ----
+                       # Sidebar layout with input and output definitions
                        sidebarLayout(
-                         # Sidebar panel for inputs ----
+                         # Sidebar panel for inputs
                          sidebarPanel(
-                           # Input: Select a file ----
+                           # Input: Select a file
                            fileInput(inputId="file1", 
                                      label="Choose .rwl file",
                                      multiple = FALSE,
@@ -27,9 +28,9 @@ ui <- fluidPage(
                                                 ".txt"))
                          ),
                          
-                         # Main panel for displaying outputs ----
+                         # Main panel for displaying outputs
                          mainPanel(
-                           # Output: Data file ----
+                           # Output: Data file
                            hr(),
                            verbatimTextOutput("rwlReport"),
                            hr(),
@@ -40,7 +41,7 @@ ui <- fluidPage(
                          )
                        )
               ),
-              # second tab ----
+              # 3rd tab ----
               tabPanel("Correlations between Series", 
                        includeMarkdown("text/corrRWL.rmd"),
                        plotOutput("crsPlot"),
@@ -96,6 +97,13 @@ ui <- fluidPage(
                          tableOutput("crsCorrBin")),
                        hr(),
                        downloadButton("crsReport", "Generate report")
+              ),
+              # 4th tab ----
+              tabPanel("Individual Series Correlations", 
+                       includeMarkdown("text/corrSeries.rmd"),
+                       plotOutput("cssPlot")
               )
+              # end tabs ----
   )
 )
+

@@ -1,0 +1,2 @@
+### (Cross) Correlation between a Series and a Master Chronology
+Below is output from `corr.series.seg` 
