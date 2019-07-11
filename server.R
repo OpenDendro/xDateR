@@ -69,20 +69,20 @@ shinyServer(function(session, input, output) {
     # Get user input about n for hanning
     # (btw, it is stupid to have to do this. hanning isn't
     # widely used)
-    if(input$n=="NULL"){
+    if(input$nCRS=="NULL"){
       n <- NULL
     }
     else{
-      n <- as.numeric(input$n)
+      n <- as.numeric(input$nCRS)
     }
     
     # run corr.rwl.seg.
     # note inputs that are passed in via inputs$ which comes from the
     # UI side
-    crs <- corr.rwl.seg(dat, seg.length = input$segLength, 
-                        bin.floor = as.numeric(input$bin.floor),n = n,
-                        prewhiten = input$prewhiten, pcrit = input$pcrit,
-                        biweight = input$biweight,method = input$method,
+    crs <- corr.rwl.seg(dat, seg.length = input$seg.lengthCRS, 
+                        bin.floor = as.numeric(input$bin.floorCRS),n = n,
+                        prewhiten = input$prewhitenCRS, pcrit = input$pcritCRS,
+                        biweight = input$biweightCRS, method = input$methodCRS,
                         make.plot=FALSE)
     
     crs
@@ -145,7 +145,7 @@ shinyServer(function(session, input, output) {
                              searching=FALSE,
                              lengthChange=FALSE)) %>%
       formatStyle('Correlation', 
-                  fontWeight = styleInterval(input$pcrit, c('normal', 'bold')))
+                  fontWeight = styleInterval(input$pcritCRS, c('normal', 'bold')))
   })
   
   ##############################################################
@@ -166,7 +166,7 @@ shinyServer(function(session, input, output) {
                              searching=FALSE,
                              lengthChange=FALSE)) %>%
       formatStyle('Correlation', 
-                  fontWeight = styleInterval(input$pcrit, c('normal', 'bold')))
+                  fontWeight = styleInterval(input$pcritCRS, c('normal', 'bold')))
   })
   
   ##############################################################
@@ -213,7 +213,7 @@ shinyServer(function(session, input, output) {
                              searching=TRUE,
                              lengthChange=FALSE)) %>%
       formatStyle(columns=-1, 
-                  fontWeight = styleInterval(input$pcrit, c('normal', 'bold')))
+                  fontWeight = styleInterval(input$pcritCRS, c('normal', 'bold')))
   })
   
   ##############################################################
