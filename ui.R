@@ -12,20 +12,19 @@ ui <- fluidPage(
               ),
               # 2nd tab ----
               tabPanel("Upload RWL Data",
-                       includeMarkdown("text/upload.rmd"),
-                       hr(),
                        # Sidebar layout with input and output definitions
                        sidebarLayout(
                          # Sidebar panel for inputs
                          sidebarPanel(
-                           # Input: Select a file
+                           h3("Upload a RWL file"),
                            fileInput(inputId="file1", 
-                                     label="Choose .rwl file",
+                                     label=NULL,
                                      multiple = FALSE,
                                      accept = c("text/plain",
                                                 ".rwl",
                                                 ".raw",
-                                                ".txt"))
+                                                ".txt")),
+                           includeMarkdown("text/upload.rmd")
                          ),
                          
                          # Main panel for displaying outputs
@@ -83,18 +82,15 @@ ui <- fluidPage(
                        fluidRow(
                          hr(),
                          column(4,
-                                tableOutput("crsOverall")),
+                                DTOutput("crsOverall")),
                          column(4,
-                                tableOutput("crsAvgCorrBin")),
+                                DTOutput("crsAvgCorrBin")),
                          column(4,
-                                #p("A summary of series that fall below the specified 
-                                #   correlation level. These might warrant further 
-                                #   investigation."),
-                                tableOutput("crsFlags"))
+                                DTOutput("crsFlags"))
                        ),
                        fluidRow(
                          hr(),
-                         tableOutput("crsCorrBin")),
+                         DTOutput("crsCorrBin")),
                        hr(),
                        downloadButton("crsReport", "Generate report")
               ),

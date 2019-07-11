@@ -1,6 +1,5 @@
 library(shiny)
 library(rmarkdown)
-library(knitr)
 library(dplR)
 library(DT)
 
@@ -65,7 +64,7 @@ shinyServer(function(session, input, output) {
   # this is the workhorse function
   # 
   getCRS <- reactive({
-    dat <- filteredRWL()
+    dat <- getRWL()
     
     # Get user input about n for hanning
     # (btw, it is stupid to have to do this. hanning isn't
@@ -103,12 +102,12 @@ shinyServer(function(session, input, output) {
   
   output$rwlReport <- renderPrint({
     req(input$file1)
-    rwl.report(filteredRWL())
+    rwl.report(getRWL())
   })
   
   output$rwlPlot <- renderPlot({
     req(input$file1)
-    plot(filteredRWL())
+    plot(getRWL())
   })
   
   output$rwlSummary <- renderTable({
@@ -133,70 +132,89 @@ shinyServer(function(session, input, output) {
   # 2nd tab -- make a table of overall correlation by series
   #
   ##############################################################
-  output$crsOverall <- renderTable({
-    # when done uncomment
+  output$crsOverall <- renderDT({
     req(input$file1)
     crsObject <- getCRS()
     overallCor <- round(crsObject$overall,3)
     res <- data.frame(Series=rownames(overallCor),
                       Correlation=overallCor[,1])
-  }, caption = "Overall Series Correlation", caption.placement = "top",
-  rownames = FALSE)
+    datatable(res,rownames = FALSE, 
+              caption = "Overall Series Correlation",
+              autoHideNavigation=TRUE,
+              options = list(pageLength = min(30,nrow(res)),
+                             searching=FALSE,
+                             lengthChange=FALSE)) %>%
+      formatStyle('Correlation', 
+                  fontWeight = styleInterval(input$pcrit, c('normal', 'bold')))
+  })
   
   ##############################################################
   #
   # 2nd tab -- make a table of the avg correlation by bin
   #
   ##############################################################
-  output$crsAvgCorrBin <- renderTable({
-    # when done uncomment
+  output$crsAvgCorrBin <- renderDT({
     req(input$file1)
     crsObject <- getCRS()
     binNames <- paste(crsObject$bins[,1], "-", crsObject$bins[,2], sep="")
     res <- data.frame(series=binNames,round(crsObject$avg.seg.rho,3))
     colnames(res) <- c("Bin","Correlation")
-    res}, caption = "Avg. Bin Correlation", caption.placement = "top",
-    rownames= FALSE)
+    datatable(res,rownames = FALSE, 
+              caption = "Avg. Correlation by Bin",
+              autoHideNavigation=TRUE,
+              options = list(pageLength = min(30,nrow(res)),
+                             searching=FALSE,
+                             lengthChange=FALSE)) %>%
+      formatStyle('Correlation', 
+                  fontWeight = styleInterval(input$pcrit, c('normal', 'bold')))
+  })
   
   ##############################################################
   #
   # 2nd tab -- flags
   #
   ##############################################################
-  output$crsFlags <- renderTable({
-    # when done uncomment
+  output$crsFlags <- renderDT({
     req(input$file1)
     crsObject <- getCRS()
     flags <- crsObject$flags
-    if(length(flags) == 0){flagsDF <- NULL}
+    if(length(flags) == 0){res <- NULL}
     else{
       flags <- unlist(flags)
-      flagsDF <- data.frame(Series=names(flags),
-                            Bins=gsub(pattern = "\\.",
-                                      replacement = "-",
-                                      x = flags))  
+      res <- data.frame(Series=names(flags),
+                        Bins=gsub(pattern = "\\.",
+                                  replacement = "-",
+                                  x = flags))  
     }
-    flagsDF
-  },caption = "Flagged Series and Segments", caption.placement = "top",
-  rownames= FALSE)
+    datatable(res,rownames = FALSE, 
+              caption = "Flagged Series / Segments",
+              autoHideNavigation=TRUE,
+              options = list(pageLength = min(30,nrow(res)),
+                             searching=FALSE,
+                             lengthChange=FALSE))
+  })
   
   ##############################################################
   #
   # 2nd tab -- make a table of the correlation by bin
   #
   ##############################################################
-  output$crsCorrBin <- renderTable({
-    # when done uncomment
+  output$crsCorrBin <- renderDT({
     req(input$file1)
     crsObject <- getCRS()
     binNames <- paste(crsObject$bins[,1], "-", crsObject$bins[,2], sep="")
     res <- round(crsObject$spearman.rho,3)
     res <- data.frame(series=rownames(res),res)
     colnames(res) <- c("Series",binNames)
-    res
-  }, caption = "Series Correlation by Bin", caption.placement = "top",
-  rownames= FALSE)
-  
+    datatable(res,rownames = FALSE, 
+              caption = "Series Correlation by Bin",
+              autoHideNavigation=TRUE,
+              options = list(pageLength = min(30,nrow(res)),
+                             searching=TRUE,
+                             lengthChange=FALSE)) %>%
+      formatStyle(columns=-1, 
+                  fontWeight = styleInterval(input$pcrit, c('normal', 'bold')))
+  })
   
   ##############################################################
   #
@@ -211,10 +229,10 @@ shinyServer(function(session, input, output) {
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
       tempReport <- file.path(tempdir(), "crsOutputReport.Rmd")
-      file.copy("crsOutputReport.Rmd", tempReport, overwrite = TRUE)
+      file.copy("reportRmd/crsOutputReport.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
-      rwlObject <- filteredRWL()
+      rwlObject <- getRWL()
       crsObject <- getCRS()
       crsParams <- list(seg.length=input$seg.length,
                      bin.floor=input$bin.floor,
