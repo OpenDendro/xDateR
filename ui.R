@@ -35,7 +35,10 @@ ui <- fluidPage(
                            # add in box to choose plot type?
                            plotOutput("rwlPlot"),
                            hr(),
-                           tableOutput("rwlSummary")
+                           tableOutput("rwlSummary"),
+                           hr(),
+                           downloadButton("rwlSummaryReport", "Generate report")
+                           
                          )
                        )
               ),

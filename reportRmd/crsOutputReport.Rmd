@@ -3,29 +3,18 @@ title: "Report: Correlations between Series"
 output: html_document
 params:
   fileName: NA
-  rwlObject: NA
   crsObject: NA
   crsParams: NA
 ---
 
 ```{r,echo=FALSE}
 library(DT)
+library(knitr)
 crsObject <- params$crsObject
 crsParams <- params$crsParams
 ```
 
 The original file passed in to the xDateR app was `r params$fileName`.
-
-The `rwl` data after filtering:
-
-```{r,echo=FALSE}
-rwl.report(params$rwlObject)
-```
-
-```{r,echo=FALSE}
-plot(params$rwlObject)
-```
-
 
 Parameters used in `corr.rwl.seg()`:
 

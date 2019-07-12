@@ -141,6 +141,33 @@ shinyServer(function(session, input, output) {
     req(input$file1)
     summary(getRWL())
   })
+  ##############################################################
+  #
+  # 1st tab -- report
+  #
+  ##############################################################
+  output$rwlSummaryReport <- downloadHandler(
+    filename = "rwlSummaryReport.html",
+    content = function(file) {
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReport <- file.path(tempdir(), "rwlOutputReport.Rmd")
+      file.copy("reportRmd/rwlOutputReport.Rmd", tempReport, overwrite = TRUE)
+      
+      # Set up parameters to pass to Rmd document
+      rwlObject <- getRWL()
+      params <- list(fileName = input$file1$name, rwlObject=rwlObject)
+      
+      # Knit the document, passing in the `params` list, and eval it in a
+      # child of the global environment (this isolates the code in the document
+      # from the code in this app).
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
   
   ##############################################################
   #
@@ -259,7 +286,6 @@ shinyServer(function(session, input, output) {
       file.copy("reportRmd/crsOutputReport.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
-      rwlObject <- getRWL()
       crsObject <- getCRS()
       crsParams <- list(seg.length=input$seg.length,
                         bin.floor=input$bin.floor,
@@ -269,7 +295,6 @@ shinyServer(function(session, input, output) {
                         biweight=input$biweight,
                         method=input$method)
       params <- list(fileName = input$file1$name,
-                     rwlObject = rwlObject,
                      crsObject = crsObject,
                      crsParams = crsParams)
       
