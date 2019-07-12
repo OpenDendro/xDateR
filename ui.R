@@ -3,7 +3,6 @@ library(dplR)
 library(DT)
 
 ui <- fluidPage(
-  
   title = "xDateR",
   tabsetPanel(type = "tabs",
               # 1st tab ----
@@ -99,10 +98,8 @@ ui <- fluidPage(
                        fluidRow(
                          column(4,
                                 selectInput(inputId = "selectSeries",
-                                            label = "Filter series",
-                                            choices = c("")),
-                                actionButton("updateSeries", "Choose Series", class = "btn-primary",
-                                             style='padding:4px; font-size:100%')
+                                            label = "Choose series",
+                                            choices = c("foo"))
                          ),
                          column(8,align="center",
                                 sliderInput(inputId="seg.lengthCSS",
@@ -141,7 +138,28 @@ ui <- fluidPage(
                        ),
                        plotOutput("ccfPlot"),
                        numericInput(inputId="lagCCF", label="Max lag", 
-                                    value=5,min=1,max=100,step=1)
+                                    value=5,min=1,max=100,step=1),
+                       hr(),
+                       plotOutput("xskelPlot"),
+                       fluidRow(
+                         column(2),
+                         column(4,
+                               sliderInput(inputId = "selectWinStart",
+                                           label="Year to center window",
+                                           value=NA,
+                                           min=NA,
+                                           max=NA,
+                                           step=NA,
+                                           sep = "")
+                         ),
+                         column(4,
+                                sliderInput(inputId="selectWinWidth", 
+                                            label="Window width",
+                                            value=50,min=20,max=100,step=10)
+                         ),
+                         column(2)
+                       )
+                       
               )
               # end tabs ----
   )

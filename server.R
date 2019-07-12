@@ -57,18 +57,37 @@ shinyServer(function(session, input, output) {
                                           selected=colnames(getRWL()))
                },label = "passes the col names to the UI for the master filtering I think")
   
-  observeEvent(eventExpr = filteredRWL(), 
-               handlerExpr = {
-                 updateSelectInput(session = session,
-                                   inputId = "selectSeries",
-                                   choices=colnames(filteredRWL()),
-                                   selected=colnames(filteredRWL())[1])
-               },label = "passes the col names to the UI for series selection I think")
+  observeEvent(eventExpr = {
+    filteredRWL()
+  }, 
+  handlerExpr = {
+    updateSelectInput(session = session,
+                      inputId = "selectSeries",
+                      choices=colnames(filteredRWL()),
+                      selected=colnames(filteredRWL())[1])
+  },label = "passes the col names to the UI for series selection I think")
+  
+  observeEvent(eventExpr = {
+    # this is what triggers the observation
+    input$selectSeries
+    #filteredRWL()
+    }, 
+    handlerExpr = {
+      dat <- filteredRWL()
+      tmp <- summary(dat)
+      winInit <- as.numeric(tmp[tmp$series==input$selectSeries,2:3])
+      
+      updateSliderInput(session = session,
+                        inputId = "selectWinStart",
+                        value=round(mean(winInit),-1),
+                        min=round(winInit[1]+5,-1) + 50,
+                        max=round(winInit[2],-1) - 50,
+                        step=10)
+    },label = "passes the yearsto the UI for window selection I think")
   # back to buisiness
   
   # reactive to run corr.rwl.seg with inputs gathered from the user.
   # this is the workhorse function
-  # 
   getCRS <- reactive({
     dat <- getRWL()
     
@@ -94,55 +113,7 @@ shinyServer(function(session, input, output) {
     crs
   })
   
-  getCSS <- reactive({
-    dat <- filteredRWL()
-    
-    # Get user input about n for hanning
-    # (btw, it is stupid to have to do this. hanning isn't
-    # widely used)
-    if(input$nCSS=="NULL"){
-      n <- NULL
-    }
-    else{
-      n <- as.numeric(input$nCSS)
-    }
-    
-    # run corr.series.seg.
-    # note inputs that are passed in via inputs$ which comes from the
-    # UI side
-    css <- corr.series.seg(dat, series = input$selectSeries, seg.length = input$seg.lengthCSS, 
-                           bin.floor = as.numeric(input$bin.floorCSS),n = n,
-                           prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
-                           biweight = input$biweightCSS, method = input$methodCSS,
-                           make.plot=TRUE)
-    
-    css
-  })
-  
-  getCCF <- reactive({
-    dat <- filteredRWL()
-    
-    # Get user input about n for hanning
-    # (btw, it is stupid to have to do this. hanning isn't
-    # widely used)
-    if(input$nCSS=="NULL"){
-      n <- NULL
-    }
-    else{
-      n <- as.numeric(input$nCSS)
-    }
-    
-    # run corr.series.seg.
-    # note inputs that are passed in via inputs$ which comes from the
-    # UI side
-    ccfObject <- ccf.series.rwl(dat, series = input$selectSeries, seg.length = input$seg.lengthCSS, 
-                           bin.floor = as.numeric(input$bin.floorCSS),n = n,
-                           prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
-                           biweight = input$biweightCSS, method = input$methodCSS,
-                           lag.max = input$lagCCF,make.plot=TRUE)
-    
-    ccfObject
-  })
+
   ##############################################################
   #
   # END reactives
@@ -345,13 +316,82 @@ shinyServer(function(session, input, output) {
   
   output$cssPlot <- renderPlot({
     req(input$file1)
-    getCSS()
+    dat <- filteredRWL()
+    
+    # Get user input about n for hanning
+    # (btw, it is stupid to have to do this. hanning isn't
+    # widely used)
+    if(input$nCSS=="NULL"){
+      n <- NULL
+    }
+    else{
+      n <- as.numeric(input$nCSS)
+    }
+    
+    # run corr.series.seg.
+    # note inputs that are passed in via inputs$ which comes from the
+    # UI side
+    css <- corr.series.seg(dat, series = input$selectSeries, seg.length = input$seg.lengthCSS, 
+                           bin.floor = as.numeric(input$bin.floorCSS),n = n,
+                           prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
+                           biweight = input$biweightCSS, method = input$methodCSS,
+                           make.plot=TRUE)
+    
+    css
   })
   
-  output$ccfPlot <- renderPlot({
+  output$ccfPlot <- renderPlot({ #why a reactive?
     req(input$file1)
-    getCCF()
+    dat <- filteredRWL()
+    
+    # Get user input about n for hanning
+    # (btw, it is stupid to have to do this. hanning isn't
+    # widely used)
+    if(input$nCSS=="NULL"){
+      n <- NULL
+    }
+    else{
+      n <- as.numeric(input$nCSS)
+    }
+    
+    # run corr.series.seg.
+    # note inputs that are passed in via inputs$ which comes from the
+    # UI side
+    ccfObject <- ccf.series.rwl(dat, series = input$selectSeries, seg.length = input$seg.lengthCSS, 
+                                bin.floor = as.numeric(input$bin.floorCSS),n = n,
+                                prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
+                                biweight = input$biweightCSS, method = input$methodCSS,
+                                lag.max = input$lagCCF,make.plot=TRUE)
+    
+    #ccfObject
+    
   })
   
+  output$xskelPlot <- renderPlot({
+    req(input$file1)
+    dat <- filteredRWL()
+    
+    # Get user input about n for hanning
+    # (btw, it is stupid to have to do this. hanning isn't
+    # widely used)
+    if(input$nCSS=="NULL"){
+      n <- NULL
+    }
+    else{
+      n <- as.numeric(input$nCSS)
+    }
+    
+    wStart <- input$selectWinStart - (input$selectWinWidth/2)
+    # run corr.series.seg.
+    # note inputs that are passed in via inputs$ which comes from the
+    # UI side
+    xskeObject <- xskel.ccf.plot(dat, series = input$selectSeries, 
+                                 win.start = wStart,
+                                 win.width = input$selectWinWidth,
+                                 n = n,
+                                 prewhiten = input$prewhitenCSS,
+                                 biweight = input$biweightCSS)
+    
+  })
 })
 
