@@ -7,7 +7,6 @@ library(DT)
 shinyServer(function(session, input, output) {
   
   ##############################################################
-  #
   # START reactives
   #
   # we use reactives so that calculations (like corr.rwl.seg)
@@ -39,25 +38,32 @@ shinyServer(function(session, input, output) {
   # getRWL() reactive, this  process is tedious.
   
   filteredRWL <- eventReactive(eventExpr = {
-    input$update
+    input$updateMaster
     getRWL()
   },
   #handlerExpr ={},# not needed unlesd something is invalidated? Maybe
   valueExpr = {
     req(getRWL())
-    if(is.null(input$select) || input$select == "")
+    if(is.null(input$selectMaster) || input$selectMaster == "")
       getRWL() else 
-        getRWL()[, colnames(getRWL()) %in% input$select]
+        getRWL()[, colnames(getRWL()) %in% input$selectMaster]
   },label = "where the getRWL gets filtered")
   
   observeEvent(eventExpr = getRWL(), 
                handlerExpr = {
                  updateCheckboxGroupInput(session = session, inline = TRUE,
-                                          inputId = "select",
+                                          inputId = "selectMaster",
                                           choices=colnames(getRWL()),
                                           selected=colnames(getRWL()))
-               },label = "passes the col names to the UI I think")
+               },label = "passes the col names to the UI for the master filtering I think")
   
+  observeEvent(eventExpr = filteredRWL(), 
+               handlerExpr = {
+                 updateSelectInput(session = session,
+                                   inputId = "selectSeries",
+                                   choices=colnames(filteredRWL()),
+                                   selected=colnames(filteredRWL())[1])
+               },label = "passes the col names to the UI for series selection I think")
   # back to buisiness
   
   # reactive to run corr.rwl.seg with inputs gathered from the user.
@@ -87,6 +93,32 @@ shinyServer(function(session, input, output) {
     
     crs
   })
+  
+  getCSS <- reactive({
+    dat <- filteredRWL()
+    
+    # Get user input about n for hanning
+    # (btw, it is stupid to have to do this. hanning isn't
+    # widely used)
+    if(input$nCSS=="NULL"){
+      n <- NULL
+    }
+    else{
+      n <- as.numeric(input$nCSS)
+    }
+    
+    # run corr.rwl.seg.
+    # note inputs that are passed in via inputs$ which comes from the
+    # UI side
+    css <- corr.series.seg(dat, series = input$selectSeries, seg.length = input$seg.lengthCSS, 
+                           bin.floor = as.numeric(input$bin.floorCSS),n = n,
+                           prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
+                           biweight = input$biweightCSS, method = input$methodCSS,
+                           make.plot=TRUE)
+    
+    css
+  })
+  
   ##############################################################
   #
   # END reactives
@@ -235,12 +267,12 @@ shinyServer(function(session, input, output) {
       rwlObject <- getRWL()
       crsObject <- getCRS()
       crsParams <- list(seg.length=input$seg.length,
-                     bin.floor=input$bin.floor,
-                     n=input$n, 
-                     prewhiten=input$prewhiten, 
-                     pcrit=input$pcrit, 
-                     biweight=input$biweight,
-                     method=input$method)
+                        bin.floor=input$bin.floor,
+                        n=input$n, 
+                        prewhiten=input$prewhiten, 
+                        pcrit=input$pcrit, 
+                        biweight=input$biweight,
+                        method=input$method)
       params <- list(fileName = input$file1$name,
                      rwlObject = rwlObject,
                      crsObject = crsObject,
@@ -263,8 +295,8 @@ shinyServer(function(session, input, output) {
   ##############################################################
   output$cssPlot <- renderPlot({
     req(input$file1)
-    dat <- filteredRWL()
-    corr.series.seg(dat,1)
+    getCSS()
+    
   })
   
 })
