@@ -69,7 +69,7 @@ ui <- fluidPage(
                          column(3,
                                 numericInput(inputId="pcritCRS", label="P crit", 
                                              value=0.05,min=0,max=1,step=0.01),
-                                selectInput(inputId="methodCRS", label="Method:", 
+                                selectInput(inputId="methodCRS", label="Method", 
                                             choices=c("pearson", "kendall", "spearman"),
                                             selected = "spearman")
                          ),
@@ -93,6 +93,7 @@ ui <- fluidPage(
               # 4th tab ----
               tabPanel("Individual Series Correlations", 
                        includeMarkdown("text/corrSeries.rmd"),
+                       textOutput("flaggedSeries"),
                        plotOutput("cssPlot"),
                        hr(),
                        fluidRow(
@@ -133,11 +134,14 @@ ui <- fluidPage(
                          column(3,
                                 numericInput(inputId="pcritCSS", label="P crit", 
                                              value=0.05,min=0,max=1,step=0.01),
-                                selectInput(inputId="methodCSS", label="Method:", 
+                                selectInput(inputId="methodCSS", label="Method", 
                                             choices=c("pearson", "kendall", "spearman"),
                                             selected = "spearman")
                          )
-                       )
+                       ),
+                       plotOutput("ccfPlot"),
+                       numericInput(inputId="lagCCF", label="Max lag", 
+                                    value=5,min=1,max=100,step=1)
               )
               # end tabs ----
   )

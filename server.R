@@ -107,7 +107,7 @@ shinyServer(function(session, input, output) {
       n <- as.numeric(input$nCSS)
     }
     
-    # run corr.rwl.seg.
+    # run corr.series.seg.
     # note inputs that are passed in via inputs$ which comes from the
     # UI side
     css <- corr.series.seg(dat, series = input$selectSeries, seg.length = input$seg.lengthCSS, 
@@ -119,6 +119,30 @@ shinyServer(function(session, input, output) {
     css
   })
   
+  getCCF <- reactive({
+    dat <- filteredRWL()
+    
+    # Get user input about n for hanning
+    # (btw, it is stupid to have to do this. hanning isn't
+    # widely used)
+    if(input$nCSS=="NULL"){
+      n <- NULL
+    }
+    else{
+      n <- as.numeric(input$nCSS)
+    }
+    
+    # run corr.series.seg.
+    # note inputs that are passed in via inputs$ which comes from the
+    # UI side
+    ccfObject <- ccf.series.rwl(dat, series = input$selectSeries, seg.length = input$seg.lengthCSS, 
+                           bin.floor = as.numeric(input$bin.floorCSS),n = n,
+                           prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
+                           biweight = input$biweightCSS, method = input$methodCSS,
+                           lag.max = input$lagCCF,make.plot=TRUE)
+    
+    ccfObject
+  })
   ##############################################################
   #
   # END reactives
@@ -293,10 +317,41 @@ shinyServer(function(session, input, output) {
   # 3rd tab -- plot the results from corr.series.seg
   #
   ##############################################################
+  
+  output$flaggedSeries <- renderText({
+    req(input$file1)
+    crsObject <- getCRS()
+    flags <- crsObject$flags
+    if(length(flags) == 0){
+      res <- "There are no flagged series."}
+    else{
+      flags <- unlist(flags)
+      series2get <- names(flags)
+      if(length(series2get) == 1){
+        res <- paste("Series ", series2get," was flagged.",sep="")  
+      }
+      if(length(series2get) == 2){
+        res <- paste("Series ", paste(series2get,sep=" ",collapse = " and "),
+                     " were flagged.",sep="")  
+      }
+      if(length(series2get) > 2){
+        res <- paste("These series were flagged:", 
+                     paste(series2get,sep=" ",collapse = " , "),
+                     ".",sep="")  
+      }
+    }
+    res
+  })
+  
   output$cssPlot <- renderPlot({
     req(input$file1)
     getCSS()
-    
+  })
+  
+  output$ccfPlot <- renderPlot({
+    req(input$file1)
+    getCCF()
   })
   
 })
+
