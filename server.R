@@ -44,15 +44,15 @@ shinyServer(function(session, input, output) {
   #handlerExpr ={},# not needed unlesd something is invalidated? Maybe
   valueExpr = {
     req(getRWL())
-    if(is.null(input$selectMaster) || input$selectMaster == "")
+    if(is.null(input$master) || input$master == "")
       getRWL() else 
-        getRWL()[, colnames(getRWL()) %in% input$selectMaster]
+        getRWL()[, colnames(getRWL()) %in% input$master]
   },label = "where the getRWL gets filtered")
   
   observeEvent(eventExpr = getRWL(), 
                handlerExpr = {
                  updateCheckboxGroupInput(session = session, inline = TRUE,
-                                          inputId = "selectMaster",
+                                          inputId = "master",
                                           choices=colnames(getRWL()),
                                           selected=colnames(getRWL()))
                },label = "passes the col names to the UI for the master filtering I think")
@@ -62,23 +62,23 @@ shinyServer(function(session, input, output) {
   }, 
   handlerExpr = {
     updateSelectInput(session = session,
-                      inputId = "selectSeries",
+                      inputId = "series",
                       choices=colnames(filteredRWL()),
                       selected=colnames(filteredRWL())[1])
   },label = "passes the col names to the UI for series selection I think")
   
   observeEvent(eventExpr = {
     # this is what triggers the observation
-    input$selectSeries
+    input$series
     #filteredRWL()
   }, 
   handlerExpr = {
     dat <- filteredRWL()
     tmp <- summary(dat)
-    winInit <- as.numeric(tmp[tmp$series==input$selectSeries,2:3])
+    winInit <- as.numeric(tmp[tmp$series==input$series,2:3])
     
     updateSliderInput(session = session,
-                      inputId = "selectWinStart",
+                      inputId = "winCenter",
                       value=round(mean(winInit),-1),
                       min=round(winInit[1]+5,-1) + 50,
                       max=round(winInit[2],-1) - 50,
@@ -346,7 +346,7 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$cssPlot <- renderPlot({
-    req(input$selectSeries)
+    req(input$series)
     dat <- filteredRWL()
     
     # Get user input about n for hanning
@@ -362,7 +362,7 @@ shinyServer(function(session, input, output) {
     # run corr.series.seg.
     # note inputs that are passed in via inputs$ which comes from the
     # UI side
-    css <- corr.series.seg(dat, series = input$selectSeries, seg.length = input$seg.lengthCSS, 
+    css <- corr.series.seg(dat, series = input$series, seg.length = input$seg.lengthCSS, 
                            bin.floor = as.numeric(input$bin.floorCSS),n = n,
                            prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
                            biweight = input$biweightCSS, method = input$methodCSS,
@@ -376,7 +376,7 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$ccfPlot <- renderPlot({
-    req(input$selectSeries)
+    req(input$series)
     dat <- filteredRWL()
     
     # Get user input about n for hanning
@@ -392,7 +392,7 @@ shinyServer(function(session, input, output) {
     # run corr.series.seg.
     # note inputs that are passed in via inputs$ which comes from the
     # UI side
-    ccfObject <- ccf.series.rwl(dat, series = input$selectSeries, seg.length = input$seg.lengthCSS, 
+    ccfObject <- ccf.series.rwl(dat, series = input$series, seg.length = input$seg.lengthCSS, 
                                 bin.floor = as.numeric(input$bin.floorCSS),n = n,
                                 prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
                                 biweight = input$biweightCSS, method = input$methodCSS,
@@ -408,7 +408,7 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$xskelPlot <- renderPlot({
-    req(input$selectSeries)
+    req(input$series)
     dat <- filteredRWL()
     
     # Get user input about n for hanning
@@ -421,13 +421,13 @@ shinyServer(function(session, input, output) {
       n <- as.numeric(input$nCSS)
     }
     
-    wStart <- input$selectWinStart - (input$selectWinWidth/2)
+    wCenter <- input$winCenter - (input$winWidth/2)
     # run corr.series.seg.
     # note inputs that are passed in via inputs$ which comes from the
     # UI side
-    xskeObject <- xskel.ccf.plot(dat, series = input$selectSeries, 
-                                 win.start = wStart,
-                                 win.width = input$selectWinWidth,
+    xskeObject <- xskel.ccf.plot(dat, series = input$series, 
+                                 win.start = wCenter,
+                                 win.width = input$winWidth,
                                  n = n,
                                  prewhiten = input$prewhitenCSS,
                                  biweight = input$biweightCSS)
@@ -457,9 +457,9 @@ shinyServer(function(session, input, output) {
                         pcrit=input$pcritCSS, 
                         biweight=input$biweightCSS,
                         method=input$methodCSS,
-                        selectSeries=input$selectSeries,
-                        selectWinStart=input$selectWinStart,
-                        selectWinWidth=input$selectWinWidth,
+                        series=input$series,
+                        winCenter=input$winCenter,
+                        winWidth=input$winWidth,
                         lagCCF=input$lagCCF)
       params <- list(fileName = input$file1$name,
                      rwlObject = filteredRWL(),

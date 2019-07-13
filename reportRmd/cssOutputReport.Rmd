@@ -14,11 +14,11 @@ library(kableExtra)
 cssParams <- params$cssParams
 ```
 
-The original file passed in to the xDateR app was `r params$fileName`. The series selected is `r cssParams$selectSeries`. The series in the master are:
+The original file passed in to the xDateR app was `r params$fileName`. The series selected is `r cssParams$series`. The series in the master are:
 
-```{r,echo=TRUE}
+```{r,echo=FALSE}
 dat <- params$rwlObject
-mask <- names(dat) %in% cssParams$selectSeries
+mask <- names(dat) %in% cssParams$series
 dat <- dat[,!mask]
 nSeries <- ncol(dat)
 i <- 4
@@ -43,8 +43,8 @@ tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
                            cssParams$n, cssParams$prewhiten, 
                            cssParams$pcrit, cssParams$biweight,
                            cssParams$method,
-                           cssParams$selectWinStart,
-                           cssParams$selectWinWidth,
+                           cssParams$winCenter,
+                           cssParams$winWidth,
                            cssParams$lagCCF))
 kable(tab2,caption="Params") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
@@ -60,7 +60,7 @@ if(cssParams$n=="NULL"){
 if(cssParams$n!="NULL"){
   n <- as.numeric(cssParams$n)
 }
-css <- corr.series.seg(dat, series = cssParams$selectSeries, 
+css <- corr.series.seg(dat, series = cssParams$series, 
                        seg.length = cssParams$seg.length, 
                        bin.floor = as.numeric(cssParams$bin.floor),n = n,
                        prewhiten = cssParams$prewhiten, pcrit = cssParams$pcrit,
@@ -73,7 +73,7 @@ Results from `ccf.series.rwl`
 
 ```{r, echo=FALSE}
 ccfObject <- ccf.series.rwl(dat, 
-                            series = cssParams$selectSeries, 
+                            series = cssParams$series, 
                             seg.length = cssParams$seg.length, 
                             bin.floor = as.numeric(cssParams$bin.floor),n = n,
                             prewhiten = cssParams$prewhiten, pcrit = cssParams$pcrit,
@@ -85,10 +85,10 @@ ccfObject <- ccf.series.rwl(dat,
 Results from `xskel.ccf.plot`
 
 ```{r, echo=FALSE}
-    wStart <- cssParams$selectWinStart - (cssParams$selectWinWidth/2)
-    xskeObject <- xskel.ccf.plot(dat, series = cssParams$selectSeries, 
-                                 win.start = wStart,
-                                 win.width = cssParams$selectWinWidth,
+    wCenter <- cssParams$winCenter - (cssParams$winWidth/2)
+    xskeObject <- xskel.ccf.plot(dat, series = cssParams$series, 
+                                 win.start = wCenter,
+                                 win.width = cssParams$winWidth,
                                  n = n,
                                  prewhiten = cssParams$prewhiten,
                                  biweight = cssParams$biweight)

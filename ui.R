@@ -103,7 +103,7 @@ ui <- fluidPage(
                        hr(),
                        fluidRow(
                          column(4,
-                                selectInput(inputId = "selectSeries",
+                                selectInput(inputId = "series",
                                             label = "Choose series",
                                             choices = c("foo"))
                          ),
@@ -117,7 +117,7 @@ ui <- fluidPage(
                        ),
                        fluidRow(
                          column(4,
-                                checkboxGroupInput(inputId = "selectMaster", 
+                                checkboxGroupInput(inputId = "master", 
                                                    inline = TRUE,
                                                    label = "Filter series from master",
                                                    choices = c("")),
@@ -150,7 +150,7 @@ ui <- fluidPage(
                        fluidRow(
                          column(2),
                          column(4,
-                               sliderInput(inputId = "selectWinStart",
+                               sliderInput(inputId = "winCenter",
                                            label="Year to center window",
                                            value=NA,
                                            min=NA,
@@ -159,7 +159,7 @@ ui <- fluidPage(
                                            sep = "")
                          ),
                          column(4,
-                                sliderInput(inputId="selectWinWidth", 
+                                sliderInput(inputId="winWidth", 
                                             label="Window width",
                                             value=50,min=20,max=100,step=10)
                          ),
