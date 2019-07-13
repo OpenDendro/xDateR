@@ -71,19 +71,19 @@ shinyServer(function(session, input, output) {
     # this is what triggers the observation
     input$selectSeries
     #filteredRWL()
-    }, 
-    handlerExpr = {
-      dat <- filteredRWL()
-      tmp <- summary(dat)
-      winInit <- as.numeric(tmp[tmp$series==input$selectSeries,2:3])
-      
-      updateSliderInput(session = session,
-                        inputId = "selectWinStart",
-                        value=round(mean(winInit),-1),
-                        min=round(winInit[1]+5,-1) + 50,
-                        max=round(winInit[2],-1) - 50,
-                        step=10)
-    },label = "passes the yearsto the UI for window selection I think")
+  }, 
+  handlerExpr = {
+    dat <- filteredRWL()
+    tmp <- summary(dat)
+    winInit <- as.numeric(tmp[tmp$series==input$selectSeries,2:3])
+    
+    updateSliderInput(session = session,
+                      inputId = "selectWinStart",
+                      value=round(mean(winInit),-1),
+                      min=round(winInit[1]+5,-1) + 50,
+                      max=round(winInit[2],-1) - 50,
+                      step=10)
+  },label = "passes the yearsto the UI for window selection I think")
   # back to buisiness
   
   # reactive to run corr.rwl.seg with inputs gathered from the user.
@@ -113,7 +113,7 @@ shinyServer(function(session, input, output) {
     crs
   })
   
-
+  
   ##############################################################
   #
   # END reactives
@@ -134,7 +134,7 @@ shinyServer(function(session, input, output) {
   
   output$rwlPlot <- renderPlot({
     req(input$file1)
-    plot(getRWL())
+    plot.rwl(getRWL(),plot.type = input$rwlPlotType)
   })
   
   output$rwlSummary <- renderTable({
@@ -157,7 +157,8 @@ shinyServer(function(session, input, output) {
       
       # Set up parameters to pass to Rmd document
       rwlObject <- getRWL()
-      params <- list(fileName = input$file1$name, rwlObject=rwlObject)
+      params <- list(fileName = input$file1$name, rwlObject=rwlObject,
+                     rwlPlotType=input$rwlPlotType)
       
       # Knit the document, passing in the `params` list, and eval it in a
       # child of the global environment (this isolates the code in the document
@@ -310,7 +311,7 @@ shinyServer(function(session, input, output) {
   
   ##############################################################
   #
-  # 3rd tab -- plot the results from corr.series.seg
+  # 3rd tab -- print the flags from last tab
   #
   ##############################################################
   
@@ -339,8 +340,13 @@ shinyServer(function(session, input, output) {
     res
   })
   
+  ##############################################################
+  #
+  # 3rd tab -- plot the results from corr.series.seg
+  #
+  ##############################################################
   output$cssPlot <- renderPlot({
-    req(input$file1)
+    req(input$selectSeries)
     dat <- filteredRWL()
     
     # Get user input about n for hanning
@@ -362,11 +368,15 @@ shinyServer(function(session, input, output) {
                            biweight = input$biweightCSS, method = input$methodCSS,
                            make.plot=TRUE)
     
-    css
   })
   
-  output$ccfPlot <- renderPlot({ #why a reactive?
-    req(input$file1)
+  ##############################################################
+  #
+  # 3rd tab -- plot the results from ccf.series.rwl
+  #
+  ##############################################################
+  output$ccfPlot <- renderPlot({
+    req(input$selectSeries)
     dat <- filteredRWL()
     
     # Get user input about n for hanning
@@ -392,8 +402,13 @@ shinyServer(function(session, input, output) {
     
   })
   
+  ##############################################################
+  #
+  # 3rd tab -- plot the results from xskel.ccf.plot
+  #
+  ##############################################################
   output$xskelPlot <- renderPlot({
-    req(input$file1)
+    req(input$selectSeries)
     dat <- filteredRWL()
     
     # Get user input about n for hanning
@@ -418,5 +433,47 @@ shinyServer(function(session, input, output) {
                                  biweight = input$biweightCSS)
     
   })
+  
+  ##############################################################
+  #
+  # 3rd tab -- report
+  #
+  ##############################################################
+  output$cssReport <- downloadHandler(
+    # For PDF output, change this to ".pdf"
+    filename = "cssReport.html",
+    content = function(file) {
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReport <- file.path(tempdir(), "cssOutputReport.Rmd")
+      file.copy("reportRmd/cssOutputReport.Rmd", tempReport, overwrite = TRUE)
+      
+      # Set up parameters to pass to Rmd document
+      cssParams <- list(seg.length=input$seg.lengthCSS,
+                        bin.floor=input$bin.floorCSS,
+                        n=input$nCSS, 
+                        prewhiten=input$prewhitenCSS, 
+                        pcrit=input$pcritCSS, 
+                        biweight=input$biweightCSS,
+                        method=input$methodCSS,
+                        selectSeries=input$selectSeries,
+                        selectWinStart=input$selectWinStart,
+                        selectWinWidth=input$selectWinWidth,
+                        lagCCF=input$lagCCF)
+      params <- list(fileName = input$file1$name,
+                     rwlObject = filteredRWL(),
+                     cssParams = cssParams)
+      
+      # Knit the document, passing in the `params` list, and eval it in a
+      # child of the global environment (this isolates the code in the document
+      # from the code in this app).
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  
 })
 

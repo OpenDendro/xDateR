@@ -1,0 +1,95 @@
+---
+title: "Report: Individual Series Correlations"
+output: html_document
+params:
+  fileName: NA
+  rwlObject: NA
+  cssParams: NA
+---
+
+```{r,echo=FALSE}
+library(DT)
+library(knitr)
+library(kableExtra)
+cssParams <- params$cssParams
+```
+
+The original file passed in to the xDateR app was `r params$fileName`. The series selected is `r cssParams$selectSeries`. The series in the master are:
+
+```{r,echo=TRUE}
+dat <- params$rwlObject
+mask <- names(dat) %in% cssParams$selectSeries
+dat <- dat[,!mask]
+nSeries <- ncol(dat)
+i <- 4
+j <- round(nSeries/i + 0.5)
+tmp <- c(names(dat),rep(NA,i * j - nSeries))
+res <- matrix(tmp,nrow = j, ncol = i)
+#res <- data.frame(res)
+res[is.na(res)] <- ""
+res2 <- kable(res, format="html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+gsub("<thead>.*</thead>", "", res2)
+```
+
+Parameters used in this run, in no particular order:
+
+```{r,echo=FALSE}
+tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
+                               "prewhiten","pcrit","biweight",
+                               "method","window.center","window.width",
+                               "lag.max"),
+                   Value=c(cssParams$seg.length,cssParams$bin.floor,
+                           cssParams$n, cssParams$prewhiten, 
+                           cssParams$pcrit, cssParams$biweight,
+                           cssParams$method,
+                           cssParams$selectWinStart,
+                           cssParams$selectWinWidth,
+                           cssParams$lagCCF))
+kable(tab2,caption="Params") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+Results from `corr.series.seg`
+
+```{r, echo=FALSE}
+dat <- params$rwlObject
+if(cssParams$n=="NULL"){
+  n <- NULL
+}
+if(cssParams$n!="NULL"){
+  n <- as.numeric(cssParams$n)
+}
+css <- corr.series.seg(dat, series = cssParams$selectSeries, 
+                       seg.length = cssParams$seg.length, 
+                       bin.floor = as.numeric(cssParams$bin.floor),n = n,
+                       prewhiten = cssParams$prewhiten, pcrit = cssParams$pcrit,
+                       biweight = cssParams$biweight, method = cssParams$method,
+                       make.plot=TRUE)
+```
+
+
+Results from `ccf.series.rwl`
+
+```{r, echo=FALSE}
+ccfObject <- ccf.series.rwl(dat, 
+                            series = cssParams$selectSeries, 
+                            seg.length = cssParams$seg.length, 
+                            bin.floor = as.numeric(cssParams$bin.floor),n = n,
+                            prewhiten = cssParams$prewhiten, pcrit = cssParams$pcrit,
+                            biweight = cssParams$biweight, method = cssParams$method,
+                            lag.max = cssParams$lagCCF,make.plot=TRUE)
+```
+
+
+Results from `xskel.ccf.plot`
+
+```{r, echo=FALSE}
+    wStart <- cssParams$selectWinStart - (cssParams$selectWinWidth/2)
+    xskeObject <- xskel.ccf.plot(dat, series = cssParams$selectSeries, 
+                                 win.start = wStart,
+                                 win.width = cssParams$selectWinWidth,
+                                 n = n,
+                                 prewhiten = cssParams$prewhiten,
+                                 biweight = cssParams$biweight)
+```

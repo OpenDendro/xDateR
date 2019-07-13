@@ -1,9 +1,11 @@
 ---
-title: "Report: Correlations between Series"
+title: "Report: Description of RWL File"
 output: html_document
 params:
   fileName: NA
   rwlObject: NA
+  rwlPlotType: NA
+  
 ---
 
 ```{r,echo=FALSE}
@@ -12,12 +14,14 @@ library(DT)
 
 The original file passed in to the xDateR app was `r params$fileName`.
 
-The `rwl` data after filtering:
-
 ```{r,echo=FALSE}
 rwl.report(params$rwlObject)
 ```
 
 ```{r,echo=FALSE}
-plot(params$rwlObject)
+plot.rwl(params$rwlObject,plot.type = params$rwlPlotType)
+```
+
+```{r,echo=FALSE}
+summary(params$rwlObject)
 ```

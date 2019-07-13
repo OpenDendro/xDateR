@@ -34,6 +34,9 @@ ui <- fluidPage(
                            hr(),
                            # add in box to choose plot type?
                            plotOutput("rwlPlot"),
+                           selectInput(inputId="rwlPlotType", label="Plot Type", 
+                                       choices=c("seg","spag"),
+                                       selected = "seg"),
                            hr(),
                            tableOutput("rwlSummary"),
                            hr(),
@@ -161,8 +164,9 @@ ui <- fluidPage(
                                             value=50,min=20,max=100,step=10)
                          ),
                          column(2)
-                       )
-                       
+                       ),
+                       hr(),
+                       downloadButton("cssReport", "Generate report")
               )
               # end tabs ----
   )
