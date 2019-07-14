@@ -9,14 +9,17 @@ shinyServer(function(session, input, output) {
   ##############################################################
   # START reactives
   #
-  # we use reactives so that calculations (like corr.rwl.seg)
-  # need to be done once. the output can get passed between tabs
-  # and code chunks.
+  # we use reactives for two reasons (at least). The first is
+  # so that calculations (like corr.rwl.seg)
+  # need to be done only once. The output can get passed between 
+  # tabs and code chunks. The second reason is so user input can 
+  # be gathered from the UI dynamically and passed. 
+  # E.g., selecting series. These dynamic things are obervations 
+  # and actions. At moment, I'm pretty confised about terminolgy
   #
   ##############################################################
   
-  # reactive to get the RWL file from the user at the start.
-  # nothing will happen until this is done
+  # This is a reactive to get the RWL file from the user at the start.
   getRWL <- reactive({
     inFile <- input$file1
     if (is.null(inFile)) {
@@ -28,82 +31,119 @@ shinyServer(function(session, input, output) {
     dat
   })
   
-  # Because we want the user to be able to dynamically filter the series that
-  # are included this is the start of a tedious path to make checkboxes that will
-  # update the series included in the crs plot.
+  # This observes the input RWL and gets the names of the series. These names 
+  # get passed to the checkboxes for possible filtering later (when the action button
+  # is pressed).
+  observeEvent(
+    eventExpr = getRWL(), 
+    handlerExpr = {
+      updateCheckboxGroupInput(session = session, inline = TRUE,
+                               inputId = "master",
+                               choices=colnames(getRWL()),
+                               selected=colnames(getRWL()))
+    },
+    label = "passes the col names to the UI for the master filtering I think")
   
-  # The logic is, I think that we need to update what getRWL() produces and 
-  # respond to and event by oberserving it. Thisis difficult because we want the 
-  # colnames of the file that was read in to be displayed. Because that comes from the 
-  # getRWL() reactive, this  process is tedious.
+  # This is the reactive that filters that RWL object.
+  # It waits for an event to occur. Here it waits for 
+  # updateMasterButton to be invoked with the action button. I think. And then it
+  # filters the RWL
   
-  filteredRWL <- eventReactive(eventExpr = {
-    input$updateMaster
-    getRWL()
-  },
-  #handlerExpr ={},# not needed unlesd something is invalidated? Maybe
-  valueExpr = {
-    req(getRWL())
-    if(is.null(input$master) || input$master == "")
-      getRWL() else 
-        getRWL()[, colnames(getRWL()) %in% input$master]
-  },label = "where the getRWL gets filtered")
+  filteredRWL <- eventReactive(
+    eventExpr = {
+      # both these events have to happen to trigger this
+      input$updateMasterButton
+      getRWL()
+    },
+    #handlerExpr ={},# not needed unlesd something is invalidated? Maybe
+    valueExpr = {
+      # this is what happens if triggered
+      req(getRWL())
+      if(is.null(input$master) || input$master == ""){
+        res <- getRWL()
+      }
+      else {
+        res <- getRWL()[, colnames(getRWL()) %in% input$master]
+      }
+      res
+    },
+    label = "filteredRWL eventReactive")
   
-  observeEvent(eventExpr = getRWL(), 
-               handlerExpr = {
-                 updateCheckboxGroupInput(session = session, inline = TRUE,
-                                          inputId = "master",
-                                          choices=colnames(getRWL()),
-                                          selected=colnames(getRWL()))
-               },label = "passes the col names to the UI for the master filtering I think")
+  # observe which series gets selected for the individual series correlation
+  # analysis and create the variable input$series. It deafaults to the first
+  # series.
+  observeEvent(
+    eventExpr = {
+      filteredRWL()
+    }, 
+    handlerExpr = {
+      updateSelectInput(session = session,
+                        inputId = "series",
+                        choices=colnames(filteredRWL()),
+                        selected=colnames(filteredRWL())[1])
+    },
+    label = "observe series being selected and update the input box")
   
-  observeEvent(eventExpr = {
-    filteredRWL()
-  }, 
-  handlerExpr = {
-    updateSelectInput(session = session,
-                      inputId = "series",
-                      choices=colnames(filteredRWL()),
-                      selected=colnames(filteredRWL())[1])
-  },label = "passes the col names to the UI for series selection I think")
   
-  observeEvent(eventExpr = {
-    # this is what triggers the observation
-    input$series
-    #filteredRWL()
-  }, 
-  handlerExpr = {
-    dat <- filteredRWL()
-    tmp <- summary(dat)
-    winInit <- as.numeric(tmp[tmp$series==input$series,2:3])
-    
-    updateSliderInput(session = session,
-                      inputId = "winCenter",
-                      value=round(mean(winInit),-1),
-                      min=round(winInit[1]+5,-1) + 50,
-                      max=round(winInit[2],-1) - 50,
-                      step=10)
-  },label = "passes the yearsto the UI for window selection I think")
+  # observe which series gets selected for the individual series correlation
+  # get the start and end dates for the series. These are used to
+  # update the window slider for the xskel plot
+  observeEvent(
+    eventExpr = {
+      # this is what triggers the observation
+      input$series
+    }, 
+    handlerExpr = {
+      dat <- filteredRWL()
+      tmp <- summary(dat)
+      winInit <- as.numeric(tmp[tmp$series==input$series,2:3])
+      
+      updateSliderInput(session = session,
+                        inputId = "winCenter",
+                        value=round(mean(winInit),-1),
+                        min=round(winInit[1]+5,-1) + 50,
+                        max=round(winInit[2],-1) - 50,
+                        step=10)
+    },
+    label = "observe series being selected and update the window slider")
+  
+  # deleting and adding rings goes here
+
+  editSeries <- eventReactive(
+    eventExpr = {
+      input$editSubmit
+    },
+    #handlerExpr ={},# not needed unlesd something is invalidated? Maybe
+    valueExpr = {
+      req(filteredRWL())
+      dat <- filteredRWL()
+      series2edit <- dat[,input$series]
+      names(series2edit) <- time(dat)
+      tmp <- insert.ring(rw.vec=series2edit,
+                         rw.vec.yrs = time(dat),
+                         year=input$insertRingYear,
+                         ring.value=input$insertRingValue, 
+                         fix.last = input$insertRingFixLast, 
+                         fix.length = input$insertRingFixLength)
+      rwlRV$series <- tmp
+    }, 
+    label = "eventReactive edting series")
+  
+  
   # back to buisiness
   
   # reactive to run corr.rwl.seg with inputs gathered from the user.
-  # this is the workhorse function
+  # this is the workhorse function. We produce a plot and a bunch of
+  # tables with it, so it makes sense to do this as a reactive.
+  
   getCRS <- reactive({
     dat <- getRWL()
-    
-    # Get user input about n for hanning
-    # (btw, it is stupid to have to do this. hanning isn't
-    # widely used)
     if(input$nCRS=="NULL"){
       n <- NULL
     }
     else{
       n <- as.numeric(input$nCRS)
     }
-    
-    # run corr.rwl.seg.
-    # note inputs that are passed in via inputs$ which comes from the
-    # UI side
     crs <- corr.rwl.seg(dat, seg.length = input$seg.lengthCRS, 
                         bin.floor = as.numeric(input$bin.floorCRS),n = n,
                         prewhiten = input$prewhitenCRS, pcrit = input$pcritCRS,
@@ -349,9 +389,6 @@ shinyServer(function(session, input, output) {
     req(input$series)
     dat <- filteredRWL()
     
-    # Get user input about n for hanning
-    # (btw, it is stupid to have to do this. hanning isn't
-    # widely used)
     if(input$nCSS=="NULL"){
       n <- NULL
     }
@@ -359,9 +396,6 @@ shinyServer(function(session, input, output) {
       n <- as.numeric(input$nCSS)
     }
     
-    # run corr.series.seg.
-    # note inputs that are passed in via inputs$ which comes from the
-    # UI side
     css <- corr.series.seg(dat, series = input$series, seg.length = input$seg.lengthCSS, 
                            bin.floor = as.numeric(input$bin.floorCSS),n = n,
                            prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
@@ -379,9 +413,6 @@ shinyServer(function(session, input, output) {
     req(input$series)
     dat <- filteredRWL()
     
-    # Get user input about n for hanning
-    # (btw, it is stupid to have to do this. hanning isn't
-    # widely used)
     if(input$nCSS=="NULL"){
       n <- NULL
     }
@@ -389,17 +420,11 @@ shinyServer(function(session, input, output) {
       n <- as.numeric(input$nCSS)
     }
     
-    # run corr.series.seg.
-    # note inputs that are passed in via inputs$ which comes from the
-    # UI side
     ccfObject <- ccf.series.rwl(dat, series = input$series, seg.length = input$seg.lengthCSS, 
                                 bin.floor = as.numeric(input$bin.floorCSS),n = n,
                                 prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
                                 biweight = input$biweightCSS, method = input$methodCSS,
                                 lag.max = input$lagCCF,make.plot=TRUE)
-    
-    #ccfObject
-    
   })
   
   ##############################################################
@@ -411,9 +436,6 @@ shinyServer(function(session, input, output) {
     req(input$series)
     dat <- filteredRWL()
     
-    # Get user input about n for hanning
-    # (btw, it is stupid to have to do this. hanning isn't
-    # widely used)
     if(input$nCSS=="NULL"){
       n <- NULL
     }
@@ -422,17 +444,21 @@ shinyServer(function(session, input, output) {
     }
     
     wCenter <- input$winCenter - (input$winWidth/2)
-    # run corr.series.seg.
-    # note inputs that are passed in via inputs$ which comes from the
-    # UI side
+    
     xskeObject <- xskel.ccf.plot(dat, series = input$series, 
                                  win.start = wCenter,
                                  win.width = input$winWidth,
                                  n = n,
                                  prewhiten = input$prewhitenCSS,
                                  biweight = input$biweightCSS)
-    
   })
+  
+  ##############################################################
+  #
+  # 3rd tab -- edit series
+  #
+  ##############################################################
+  
   
   ##############################################################
   #

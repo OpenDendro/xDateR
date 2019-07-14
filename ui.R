@@ -121,7 +121,9 @@ ui <- fluidPage(
                                                    inline = TRUE,
                                                    label = "Filter series from master",
                                                    choices = c("")),
-                                actionButton("updateMaster", "Update master", class = "btn-primary",
+                                actionButton(inputId="updateMasterButton", 
+                                             label="Update master", 
+                                             class = "btn-primary",
                                              style='padding:4px; font-size:100%')
                          ),
                          column(2,
@@ -150,13 +152,13 @@ ui <- fluidPage(
                        fluidRow(
                          column(2),
                          column(4,
-                               sliderInput(inputId = "winCenter",
-                                           label="Year to center window",
-                                           value=NA,
-                                           min=NA,
-                                           max=NA,
-                                           step=NA,
-                                           sep = "")
+                                sliderInput(inputId = "winCenter",
+                                            label="Year to center window",
+                                            value=NA,
+                                            min=NA,
+                                            max=NA,
+                                            step=NA,
+                                            sep = "")
                          ),
                          column(4,
                                 sliderInput(inputId="winWidth", 
@@ -165,6 +167,12 @@ ui <- fluidPage(
                          ),
                          column(2)
                        ),
+                       hr(),
+                       h3("Dating notes"),
+                       textAreaInput(inputId="datingNotes", 
+                                 label="Enter dating notes",
+                                 value="",width="600px",height = "400px",
+                                 placeholder="Enter notes in here. They will be saved if you generate a report."),
                        hr(),
                        downloadButton("cssReport", "Generate report")
               )
