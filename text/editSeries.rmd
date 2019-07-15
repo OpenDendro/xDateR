@@ -1,0 +1,8 @@
+**Instructions**
+
+1. Highlight a row in the table. 
+2. Edit:
+    + Click "Delete" to delete a measurement. If "Fix Last Year" is selected the last year of growth will stay the same. 
+    + Click "Insert" and enter a value to add a measurement. The new row appears above the highlight. If "Fix Last Year" is selected the last year of growth will stay the same.
+3. Click "Save" to write the edited series or "Revert" to undo your edits.
+

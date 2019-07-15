@@ -69,7 +69,7 @@ ui <- fluidPage(
                                             choices=c("NULL", seq(5,13,by=2)),
                                             selected = "NULL"),
                                 selectInput(inputId="bin.floorCRS", label="Bin Floor", 
-                                            choices=c(0, 10, 50, 100),selected = 100)
+                                            choices=c(0, 10, 50, 100),selected = 10)
                          ),
                          column(3,
                                 numericInput(inputId="pcritCRS", label="P crit", 
@@ -99,6 +99,7 @@ ui <- fluidPage(
               tabPanel("Individual Series Correlations", 
                        includeMarkdown("text/corrSeries.rmd"),
                        textOutput("flaggedSeries"),
+                       p("Output from corr.series.seg."),
                        plotOutput("cssPlot"),
                        hr(),
                        fluidRow(
@@ -134,7 +135,7 @@ ui <- fluidPage(
                                             choices=c("NULL", seq(5,13,by=2)),
                                             selected = "NULL"),
                                 selectInput(inputId="bin.floorCSS", label="Bin Floor", 
-                                            choices=c(0, 10, 50, 100),selected = 100)
+                                            choices=c(0, 10, 50, 100),selected = 10)
                          ),
                          column(3,
                                 numericInput(inputId="pcritCSS", label="P crit", 
@@ -144,10 +145,28 @@ ui <- fluidPage(
                                             selected = "spearman")
                          )
                        ),
+                       p("Output from ccf.series.rwl"),
                        plotOutput("ccfPlot"),
-                       numericInput(inputId="lagCCF", label="Max lag", 
-                                    value=5,min=1,max=100,step=1),
+                       fluidRow(
+                         column(2),
+                         column(4,
+                                numericInput(inputId="lagCCF", label="Max lag", 
+                                             value=5,min=1,max=100,step=1)
+                         ),
+                         column(4,
+                                sliderInput(inputId="rangeCCF", 
+                                            label="Adjust plotted years", 
+                                            min = NA, 
+                                            max = NA, 
+                                            value = c(NA,NA), 
+                                            step = 10,
+                                            sep = "", 
+                                            dragRange = TRUE)
+                         ),
+                         column(2)
+                       ),
                        hr(),
+                       p("Output from xskel.ccf.plot"),
                        plotOutput("xskelPlot"),
                        fluidRow(
                          column(2),
@@ -168,13 +187,49 @@ ui <- fluidPage(
                          column(2)
                        ),
                        hr(),
-                       h3("Dating notes"),
                        textAreaInput(inputId="datingNotes", 
-                                 label="Enter dating notes",
-                                 value="",width="600px",height = "400px",
-                                 placeholder="Enter notes in here. They will be saved if you generate a report."),
+                                     label="Dating notes",
+                                     value="",width="600px",height = "400px",
+                                     placeholder="Notes will be saved if you generate a report."),
                        hr(),
                        downloadButton("cssReport", "Generate report")
+              ),
+              tabPanel("Edit Series",
+                       sidebarLayout(
+                         sidebarPanel(
+                           includeMarkdown("text/editSeries.rmd"),
+                           hr(),
+                           fluidRow(
+                             column(6,
+                                    actionButton("deleteRows", "Delete Row")
+                             ),
+                             column(6,
+                                    checkboxInput(inputId="deleteRingFixLast", 
+                                                  label="Fix Last Year",value=TRUE)
+                             )
+                           ),
+                           hr(),
+                           fluidRow(
+                             column(6,
+                                    actionButton("insertRows", "Insert Row")
+                             ),
+                             column(6,
+                                    checkboxInput(inputId="insertRingFixLast", 
+                                                  label="Fix Last Year",value=TRUE)
+                             )
+                           ),
+                           numericInput(inputId="insertValue", 
+                                        label="Measurement Value",
+                                        value = 0,
+                                        min = 0),
+                           hr(),
+                           actionButton("revertSeries", "Revert Changes"),
+                           width=5),
+                         mainPanel(
+                           textOutput("series2edit"),
+                           dataTableOutput("table1"),
+                           width=7)
+                       )
               )
               # end tabs ----
   )

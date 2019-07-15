@@ -93,3 +93,6 @@ Results from `xskel.ccf.plot`
                                  prewhiten = cssParams$prewhiten,
                                  biweight = cssParams$biweight)
 ```
+
+###Dating Notes
+`r cssParams$datingNotes`

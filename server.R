@@ -19,6 +19,11 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   
+  # this is an object (empty now) that will hold the rwl data
+  # (and a backup) that can be edited and passed around
+  rwlRV <- reactiveValues()
+  
+  
   # This is a reactive to get the RWL file from the user at the start.
   getRWL <- reactive({
     inFile <- input$file1
@@ -65,7 +70,8 @@ shinyServer(function(session, input, output) {
       else {
         res <- getRWL()[, colnames(getRWL()) %in% input$master]
       }
-      res
+      rwlRV$dat <- res
+      rwlRV$datVault <- res
     },
     label = "filteredRWL eventReactive")
   
@@ -79,8 +85,8 @@ shinyServer(function(session, input, output) {
     handlerExpr = {
       updateSelectInput(session = session,
                         inputId = "series",
-                        choices=colnames(filteredRWL()),
-                        selected=colnames(filteredRWL())[1])
+                        choices=colnames(rwlRV$dat),
+                        selected=colnames(rwlRV$dat)[1])
     },
     label = "observe series being selected and update the input box")
   
@@ -92,43 +98,34 @@ shinyServer(function(session, input, output) {
     eventExpr = {
       # this is what triggers the observation
       input$series
+      filteredRWL()
     }, 
     handlerExpr = {
-      dat <- filteredRWL()
+      dat <- rwlRV$dat
       tmp <- summary(dat)
-      winInit <- as.numeric(tmp[tmp$series==input$series,2:3])
-      
+      winBnds <- as.numeric(tmp[tmp$series==input$series,2:3])
+      minWin <- round(winBnds[1] + input$lagCCF,-1)
+      maxWin <- round(winBnds[2] - input$lagCCF,-1)
       updateSliderInput(session = session,
                         inputId = "winCenter",
-                        value=round(mean(winInit),-1),
-                        min=round(winInit[1]+5,-1) + 50,
-                        max=round(winInit[2],-1) - 50,
-                        step=10)
+                        value=round(mean(winBnds),-1),
+                        min=minWin + 20,
+                        max=maxWin - 50,
+                        step=5)
+      
+      updateSliderInput(session = session,
+                        inputId = "rangeCCF",
+                        value=c(minWin,
+                                 maxWin),
+                        min=minWin,
+                        max=maxWin,
+                        step=5)
     },
     label = "observe series being selected and update the window slider")
   
   # deleting and adding rings goes here
 
-  editSeries <- eventReactive(
-    eventExpr = {
-      input$editSubmit
-    },
-    #handlerExpr ={},# not needed unlesd something is invalidated? Maybe
-    valueExpr = {
-      req(filteredRWL())
-      dat <- filteredRWL()
-      series2edit <- dat[,input$series]
-      names(series2edit) <- time(dat)
-      tmp <- insert.ring(rw.vec=series2edit,
-                         rw.vec.yrs = time(dat),
-                         year=input$insertRingYear,
-                         ring.value=input$insertRingValue, 
-                         fix.last = input$insertRingFixLast, 
-                         fix.length = input$insertRingFixLength)
-      rwlRV$series <- tmp
-    }, 
-    label = "eventReactive edting series")
-  
+
   
   # back to buisiness
   
@@ -318,7 +315,7 @@ shinyServer(function(session, input, output) {
   ##############################################################
   output$crsReport <- downloadHandler(
     # For PDF output, change this to ".pdf"
-    filename = "crsReport.html",
+    filename = "rwlCorrelationReport.html",
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
@@ -387,7 +384,8 @@ shinyServer(function(session, input, output) {
   ##############################################################
   output$cssPlot <- renderPlot({
     req(input$series)
-    dat <- filteredRWL()
+    req(input$file1)
+    dat <- rwlRV$dat
     
     if(input$nCSS=="NULL"){
       n <- NULL
@@ -410,9 +408,12 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$ccfPlot <- renderPlot({
+    req(input$file1)
     req(input$series)
-    dat <- filteredRWL()
-    
+    dat <- rwlRV$dat
+    yrs <- time(dat)
+    win <- input$rangeCCF[1]:input$rangeCCF[2]
+    dat <- dat[yrs %in% win,]
     if(input$nCSS=="NULL"){
       n <- NULL
     }
@@ -433,8 +434,9 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$xskelPlot <- renderPlot({
+    req(input$file1)
     req(input$series)
-    dat <- filteredRWL()
+    dat <- rwlRV$dat
     
     if(input$nCSS=="NULL"){
       n <- NULL
@@ -467,7 +469,7 @@ shinyServer(function(session, input, output) {
   ##############################################################
   output$cssReport <- downloadHandler(
     # For PDF output, change this to ".pdf"
-    filename = "cssReport.html",
+    filename = "individualSeriesCorrelationReport.html",
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
@@ -486,9 +488,10 @@ shinyServer(function(session, input, output) {
                         series=input$series,
                         winCenter=input$winCenter,
                         winWidth=input$winWidth,
-                        lagCCF=input$lagCCF)
+                        lagCCF=input$lagCCF,
+                        datingNotes=input$datingNotes)
       params <- list(fileName = input$file1$name,
-                     rwlObject = filteredRWL(),
+                     rwlObject = rwlRV$dat,
                      cssParams = cssParams)
       
       # Knit the document, passing in the `params` list, and eval it in a
@@ -500,6 +503,114 @@ shinyServer(function(session, input, output) {
       )
     }
   )
+  ##############################################################
+  #
+  # 4th tab -- edit
+  #
+  ##############################################################
+  # delete rows
+  observeEvent(input$deleteRows,{
+    req(filteredRWL())
+    if (!is.null(input$table1_rows_selected)) {
+      # get from RV
+      seriesDF <-rwlRV$seriesDF
+      # delete row      
+      row2delIndex <- as.numeric(input$table1_rows_selected)
+      seriesDF <- seriesDF[-row2delIndex,]
+      # redo yrs
+      n <- nrow(seriesDF)
+      
+      if(input$deleteRingFixLast){
+        newYrs <- seq(seriesDF$Year[2],by=1,length.out = n)
+      }
+      else{
+        newYrs <- seq(seriesDF$Year[1],by=1,length.out = n)
+      }
+      seriesDF$Year <- newYrs
+      
+      # insert series back into master
+      tmpSeriesDF <- data.frame(x=seriesDF[,2])
+      names(tmpSeriesDF)[1] <- input$series
+      rownames(tmpSeriesDF) <- seriesDF[,1]
+      class(tmpSeriesDF) <- c("rwl", "data.frame")
+      tmpDat <- combine.rwl(rwlRV$datNoSeries,tmpSeriesDF)
+      # reorder
+      tmpDat <- tmpDat[,names(rwlRV$dat)]
+      rwlRV$dat <- tmpDat
+    }
+  })
+  
+  # insert rows
+  observeEvent(input$insertRows,{
+    req(getRWL())
+    
+    if (!is.null(input$table1_rows_selected)) {
+      seriesDF <- rwlRV$seriesDF
+      n <- nrow(seriesDF)
+      # get row index to add
+      row2addIndex <- as.numeric(input$table1_rows_selected)
+      
+      # first part of the df
+      seriesDF1 <- seriesDF[1:(row2addIndex-1),]
+      # new row
+      seriesDF2 <- data.frame(Year=row2addIndex,Value=input$insertValue)
+      # second part of the df
+      seriesDF3 <- seriesDF[(row2addIndex):n,]
+      # combine
+      seriesDF <- rbind(seriesDF1,seriesDF2,seriesDF3)
+      n <- nrow(seriesDF)
+      # redo years
+      if(input$insertRingFixLast){
+        newYrs <- seq(seriesDF$Year[1]-1,by=1,length.out = n)
+      }
+      else{
+        newYrs <- seq(seriesDF$Year[1],by=1,length.out = n)
+      }
+      seriesDF$Year <- newYrs
+      # insert series back into master
+      tmpSeriesDF <- data.frame(x=seriesDF[,2])
+      names(tmpSeriesDF)[1] <- input$series
+      rownames(tmpSeriesDF) <- seriesDF[,1]
+      class(tmpSeriesDF) <- c("rwl", "data.frame")
+      tmpDat <- combine.rwl(rwlRV$datNoSeries,tmpSeriesDF)
+      # reorder
+      tmpDat <- tmpDat[,names(rwlRV$dat)]
+      rwlRV$dat <- tmpDat
+    }
+  })
+  
+  # revert rows
+  observeEvent(input$revertSeries,{
+    req(getRWL())
+    rwlRV$dat <- rwlRV$datVault
+  })
+  
+  output$series2edit <- renderText({
+    paste("Series", input$series, "selected",sep=" ")
+  })
+  
+  output$table1 <- renderDataTable({
+    req(filteredRWL())
+    dat <- rwlRV$dat
+    datNoSeries <- dat
+    datNoSeries[,input$series] <- NULL
+    series <- dat[,input$series] #mask NA?
+    
+    #write to RV fo ease in editing observations
+    rwlRV$datNoSeries <- datNoSeries
+    rwlRV$seriesDF <- data.frame(Year=time(datNoSeries),Value=series)
+
+   
+    
+    datatable(rwlRV$seriesDF,
+              selection=list(mode="single",target="row"),
+              rownames = FALSE, 
+              caption = "Series Correlation by Bin",
+              autoHideNavigation=TRUE,
+              options = list(pageLength = min(50,nrow(rwlRV$seriesDF)),
+                             searching=TRUE,
+                             lengthChange=FALSE))
+  })
   
 })
 
