@@ -594,14 +594,15 @@ shinyServer(function(session, input, output) {
     dat <- rwlRV$dat
     datNoSeries <- dat
     datNoSeries[,input$series] <- NULL
-    series <- dat[,input$series] #mask NA?
+    series <- dat[,input$series]
+    mask <- is.na(series)
+    seriesDF <- data.frame(Year=time(datNoSeries)[!mask],
+                           Value=series[!mask])
     
     #write to RV fo ease in editing observations
     rwlRV$datNoSeries <- datNoSeries
-    rwlRV$seriesDF <- data.frame(Year=time(datNoSeries),Value=series)
+    rwlRV$seriesDF <- seriesDF
 
-   
-    
     datatable(rwlRV$seriesDF,
               selection=list(mode="single",target="row"),
               rownames = FALSE, 
@@ -609,7 +610,10 @@ shinyServer(function(session, input, output) {
               autoHideNavigation=TRUE,
               options = list(pageLength = min(50,nrow(rwlRV$seriesDF)),
                              searching=TRUE,
-                             lengthChange=FALSE))
+                             lengthChange=FALSE,
+                             columnDefs = list(list(className = 'dt-left', 
+                                                    targets = "_all"))))
+
   })
   
 })
