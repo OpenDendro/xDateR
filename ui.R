@@ -201,7 +201,7 @@ ui <- fluidPage(
                            hr(),
                            fluidRow(
                              column(6,
-                                    actionButton("deleteRows", "Delete Row")
+                                    actionButton("deleteRows", "Delete Measurement")
                              ),
                              column(6,
                                     checkboxInput(inputId="deleteRingFixLast", 
@@ -211,7 +211,7 @@ ui <- fluidPage(
                            hr(),
                            fluidRow(
                              column(6,
-                                    actionButton("insertRows", "Insert Row")
+                                    actionButton("insertRows", "Insert Measurement")
                              ),
                              column(6,
                                     checkboxInput(inputId="insertRingFixLast", 

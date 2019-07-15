@@ -134,7 +134,7 @@ shinyServer(function(session, input, output) {
   # tables with it, so it makes sense to do this as a reactive.
   
   getCRS <- reactive({
-    dat <- getRWL()
+    dat <- rwlRV$dat
     if(input$nCRS=="NULL"){
       n <- NULL
     }
@@ -166,17 +166,17 @@ shinyServer(function(session, input, output) {
   
   output$rwlReport <- renderPrint({
     req(input$file1)
-    rwl.report(getRWL())
+    rwl.report(filteredRWL())
   })
   
   output$rwlPlot <- renderPlot({
     req(input$file1)
-    plot.rwl(getRWL(),plot.type = input$rwlPlotType)
+    plot.rwl(filteredRWL(),plot.type = input$rwlPlotType)
   })
   
   output$rwlSummary <- renderTable({
     req(input$file1)
-    summary(getRWL())
+    summary(filteredRWL())
   })
   ##############################################################
   #
@@ -193,7 +193,7 @@ shinyServer(function(session, input, output) {
       file.copy("reportRmd/rwlOutputReport.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
-      rwlObject <- getRWL()
+      rwlObject <- rwlRV$dat
       params <- list(fileName = input$file1$name, rwlObject=rwlObject,
                      rwlPlotType=input$rwlPlotType)
       
@@ -542,7 +542,7 @@ shinyServer(function(session, input, output) {
   
   # insert rows
   observeEvent(input$insertRows,{
-    req(getRWL())
+    req(filteredRWL())
     
     if (!is.null(input$table1_rows_selected)) {
       seriesDF <- rwlRV$seriesDF
@@ -581,7 +581,7 @@ shinyServer(function(session, input, output) {
   
   # revert rows
   observeEvent(input$revertSeries,{
-    req(getRWL())
+    req(filteredRWL())
     rwlRV$dat <- rwlRV$datVault
   })
   
@@ -606,7 +606,6 @@ shinyServer(function(session, input, output) {
     datatable(rwlRV$seriesDF,
               selection=list(mode="single",target="row"),
               rownames = FALSE, 
-              caption = "Series Correlation by Bin",
               autoHideNavigation=TRUE,
               options = list(pageLength = min(50,nrow(rwlRV$seriesDF)),
                              searching=TRUE,
