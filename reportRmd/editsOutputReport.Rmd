@@ -1,0 +1,16 @@
+---
+title: "Report: Edits Log"
+output: html_document
+params:
+  fileName: NA
+  rwlObject: NA
+  edits: NA
+---
+
+
+The original file passed in to the xDateR app was `r params$fileName`. 
+
+```{r} 
+params$edits
+```
+

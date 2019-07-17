@@ -22,7 +22,7 @@ shinyServer(function(session, input, output) {
   # this is an object (empty now) that will hold the rwl data
   # (and a backup) that can be edited and passed around
   rwlRV <- reactiveValues()
-  
+  rwlRV$edits <- NULL
   
   # This is a reactive to get the RWL file from the user at the start.
   getRWL <- reactive({
@@ -489,7 +489,8 @@ shinyServer(function(session, input, output) {
                         winCenter=input$winCenter,
                         winWidth=input$winWidth,
                         lagCCF=input$lagCCF,
-                        datingNotes=input$datingNotes)
+                        datingNotes=input$datingNotes,
+                        winCCF = input$rangeCCF[1]:input$rangeCCF[2])
       params <- list(fileName = input$file1$name,
                      rwlObject = rwlRV$dat,
                      cssParams = cssParams)
@@ -516,6 +517,7 @@ shinyServer(function(session, input, output) {
       seriesDF <-rwlRV$seriesDF
       # delete row      
       row2delIndex <- as.numeric(input$table1_rows_selected)
+      # drop the year
       seriesDF <- seriesDF[-row2delIndex,]
       # redo yrs
       n <- nrow(seriesDF)
@@ -537,6 +539,12 @@ shinyServer(function(session, input, output) {
       # reorder
       tmpDat <- tmpDat[,names(rwlRV$dat)]
       rwlRV$dat <- tmpDat
+      # write an edit log
+      rwlRV$edits <- c(rwlRV$edits,
+                       paste("Series ", input$series, ". ", "Year ", 
+                             rwlRV$seriesDF$Year[row2delIndex], " deleted. ",
+                             "Last Year Fix = ",input$deleteRingFixLast,
+                             sep=""))
     }
   })
   
@@ -576,6 +584,13 @@ shinyServer(function(session, input, output) {
       # reorder
       tmpDat <- tmpDat[,names(rwlRV$dat)]
       rwlRV$dat <- tmpDat
+      # write an edit log
+      rwlRV$edits <- c(rwlRV$edits,
+                       paste("Series ", input$series, ". ", "Year ", 
+                             rwlRV$seriesDF$Year[row2addIndex], " inserted with value ",
+                             input$insertValue,
+                             ". Last Year Fix = ",input$insertRingFixLast,
+                             sep=""))
     }
   })
   
@@ -583,6 +598,8 @@ shinyServer(function(session, input, output) {
   observeEvent(input$revertSeries,{
     req(filteredRWL())
     rwlRV$dat <- rwlRV$datVault
+    # write an edit log
+    rwlRV$edits <- "Edits reverted. Log reset."
   })
   
   output$series2edit <- renderText({
@@ -614,6 +631,59 @@ shinyServer(function(session, input, output) {
                                                     targets = "_all"))))
 
   })
+  
+  ##############################################################
+  #
+  # 4th tab -- log
+  #
+  ##############################################################
+  output$editLog <- renderPrint({
+    req(input$file1)
+    if(!is.null(rwlRV$edits)){
+      rwlRV$edits  
+    }
+  })
+  
+  output$editReport <- downloadHandler(
+    # For PDF output, change this to ".pdf"
+    filename = "editsReport.html",
+    content = function(file) {
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReport <- file.path(tempdir(), "editsOutputReport.Rmd")
+      file.copy("reportRmd/editsOutputReport.Rmd", tempReport, overwrite = TRUE)
+      
+      # Set up parameters to pass to Rmd document
+      params <- list(fileName = input$file1$name,
+                     rwlObject = rwlRV$dat,
+                     edits = rwlRV$edits)
+      
+      # Knit the document, passing in the `params` list, and eval it in a
+      # child of the global environment (this isolates the code in the document
+      # from the code in this app).
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  
+  ##############################################################
+  #
+  # 4th tab -- save stuff
+  #
+  ##############################################################
+  
+  output$downloadRWL <- downloadHandler(
+    filename = function() {
+      paste(input$file1, "-",Sys.Date(), ".rwl", sep="") 
+    },
+    content = function(file) {
+      write.tucson(rwl.df=rwlRV$dat, fname=file)
+    }
+  )
+  
   
 })
 

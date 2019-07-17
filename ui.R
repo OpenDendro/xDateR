@@ -7,11 +7,6 @@ ui <- fluidPage(
   tabsetPanel(type = "tabs",
               # 1st tab ----
               tabPanel("Introduction",
-                       includeMarkdown("text/intro.rmd")
-              ),
-              # 2nd tab ----
-              tabPanel("Upload RWL Data",
-                       # Sidebar layout with input and output definitions
                        sidebarLayout(
                          # Sidebar panel for inputs
                          sidebarPanel(
@@ -28,22 +23,25 @@ ui <- fluidPage(
                          
                          # Main panel for displaying outputs
                          mainPanel(
-                           # Output: Data file
-                           hr(),
-                           verbatimTextOutput("rwlReport"),
-                           hr(),
-                           # add in box to choose plot type?
-                           plotOutput("rwlPlot"),
-                           selectInput(inputId="rwlPlotType", label="Plot Type", 
-                                       choices=c("seg","spag"),
-                                       selected = "seg"),
-                           hr(),
-                           tableOutput("rwlSummary"),
-                           hr(),
-                           downloadButton("rwlSummaryReport", "Generate report")
-                           
+                           includeMarkdown("text/intro.rmd")
                          )
                        )
+              ),
+              # 2nd tab ----
+              tabPanel("Describe RWL Data",
+                       # Sidebar layout with input and output definitions
+                       includeMarkdown("text/describeRWL.rmd"),
+                       hr(),
+                       verbatimTextOutput("rwlReport"),
+                       hr(),
+                       plotOutput("rwlPlot"),
+                       selectInput(inputId="rwlPlotType", label="Plot Type", 
+                                   choices=c("seg","spag"),
+                                   selected = "seg"),
+                       hr(),
+                       tableOutput("rwlSummary"),
+                       hr(),
+                       downloadButton("rwlSummaryReport", "Generate report")
               ),
               # 3rd tab ----
               tabPanel("Correlations between Series", 
@@ -208,7 +206,14 @@ ui <- fluidPage(
                                                   label="Fix Last Year",value=TRUE)
                              )
                            ),
+                           helpText("Click \"Delete\" to delete a year (row). 
+                                     If \"Fix Last Year\" is selected the last year of 
+                                    growth will stay the same."),
                            hr(),
+                           numericInput(inputId="insertValue", 
+                                        label="Measurement Value",
+                                        value = 0,
+                                        min = 0),
                            fluidRow(
                              column(6,
                                     actionButton("insertRows", "Insert Measurement")
@@ -216,17 +221,29 @@ ui <- fluidPage(
                              column(6,
                                     checkboxInput(inputId="insertRingFixLast", 
                                                   label="Fix Last Year",value=TRUE)
-                             )
+                             ),
+                             helpText("To add a year, enter a 
+                                             value and click \"Insert.\" The new row appears above 
+                                      the highlight. If \"Fix Last Year\" is selected the 
+                                      last year of growth will stay the same.")
                            ),
-                           numericInput(inputId="insertValue", 
-                                        label="Measurement Value",
-                                        value = 0,
-                                        min = 0),
                            hr(),
                            actionButton("revertSeries", "Revert Changes"),
+                           hr(),
+                           h4("Download"),
+                           downloadButton('downloadRWL', 'Downlaod rwl object in tucson format (.rwl)'),
+                           helpText("The rwl file is writen in tucson/decadal format readable 
+                                     by standard dendro programs.(e.g., read.rwl() in 
+                                     dplR)."),
+                           hr(),
+                           h4("Log"),
+                           verbatimTextOutput("editLog"),
+                           downloadButton("editReport", "Generate report"),
                            width=5),
+                         
                          mainPanel(
                            textOutput("series2edit"),
+                           hr(),
                            dataTableOutput("table1"),
                            width=7)
                        )

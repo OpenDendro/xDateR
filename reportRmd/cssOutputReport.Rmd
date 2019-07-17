@@ -71,8 +71,9 @@ css <- corr.series.seg(dat, series = cssParams$series,
 
 Results from `ccf.series.rwl`
 
-```{r, echo=FALSE}
-ccfObject <- ccf.series.rwl(dat, 
+```{r, echo=TRUE}
+yrs <- time(dat)
+ccfObject <- ccf.series.rwl(dat[yrs %in% cssParams$winCCF,], 
                             series = cssParams$series, 
                             seg.length = cssParams$seg.length, 
                             bin.floor = as.numeric(cssParams$bin.floor),n = n,
