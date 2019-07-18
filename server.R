@@ -190,7 +190,7 @@ shinyServer(function(session, input, output) {
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
       tempReport <- file.path(tempdir(), "rwlOutputReport.Rmd")
-      file.copy("reportRmd/rwlOutputReport.Rmd", tempReport, overwrite = TRUE)
+      file.copy("rwlOutputReport.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       rwlObject <- rwlRV$dat
@@ -321,7 +321,7 @@ shinyServer(function(session, input, output) {
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
       tempReport <- file.path(tempdir(), "crsOutputReport.Rmd")
-      file.copy("reportRmd/crsOutputReport.Rmd", tempReport, overwrite = TRUE)
+      file.copy("crsOutputReport.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       crsObject <- getCRS()
@@ -475,7 +475,7 @@ shinyServer(function(session, input, output) {
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
       tempReport <- file.path(tempdir(), "cssOutputReport.Rmd")
-      file.copy("reportRmd/cssOutputReport.Rmd", tempReport, overwrite = TRUE)
+      file.copy("cssOutputReport.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       cssParams <- list(seg.length=input$seg.lengthCSS,
@@ -652,7 +652,7 @@ shinyServer(function(session, input, output) {
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
       tempReport <- file.path(tempdir(), "editsOutputReport.Rmd")
-      file.copy("reportRmd/editsOutputReport.Rmd", tempReport, overwrite = TRUE)
+      file.copy("editsOutputReport.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       params <- list(fileName = input$file1$name,
