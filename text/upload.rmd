@@ -1,1 +1,1 @@
-Upload (drag or browse) a standard file of ring widths (.rwl) readable by [`read.rwl`](https://rdrr.io/cran/dplR/man/read.rwl.html) (e.g., a file in tucson/decadal or heidelberg format).
+Upload (drag or browse) a standard file of ring widths (.rwl) readable by [`read.rwl`](https://rdrr.io/cran/dplR/man/read.rwl.html) (e.g., a file in Tucson/decadal, Heidelberg, compact, TRiDaS format).

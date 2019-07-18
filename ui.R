@@ -6,7 +6,7 @@ ui <- fluidPage(
   title = "xDateR",
   tabsetPanel(type = "tabs",
               # 1st tab ----
-              tabPanel("Introduction",
+              tabPanel("Introduction and Uplaod",
                        sidebarLayout(
                          # Sidebar panel for inputs
                          sidebarPanel(
@@ -231,7 +231,7 @@ ui <- fluidPage(
                            actionButton("revertSeries", "Revert Changes"),
                            hr(),
                            h4("Download"),
-                           downloadButton('downloadRWL', 'Downlaod rwl object in tucson format (.rwl)'),
+                           downloadButton('downloadRWL', 'Downlaod rwl object (.rwl)'),
                            helpText("The rwl file is writen in tucson/decadal format readable 
                                      by standard dendro programs.(e.g., read.rwl() in 
                                      dplR)."),
