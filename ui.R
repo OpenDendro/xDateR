@@ -6,7 +6,7 @@ ui <- fluidPage(
   title = "xDateR",
   tabsetPanel(type = "tabs",
               # 1st tab ----
-              tabPanel("Introduction and Uplaod",
+              tabPanel("Introduction and Upload",
                        sidebarLayout(
                          # Sidebar panel for inputs
                          sidebarPanel(
@@ -18,26 +18,26 @@ ui <- fluidPage(
                                                 ".rwl",
                                                 ".raw",
                                                 ".txt")),
-                           includeMarkdown("upload.rmd")
+                           includeMarkdown("text_upload.rmd")
                          ),
                          
                          # Main panel for displaying outputs
                          mainPanel(
-                           includeMarkdown("intro.rmd")
+                           includeMarkdown("text_intro.rmd")
                          )
                        )
               ),
               # 2nd tab ----
               tabPanel("Describe RWL Data",
                        # Sidebar layout with input and output definitions
-                       includeMarkdown("describe.rmd"),
-                       hr(),
-                       verbatimTextOutput("rwlReport"),
+                       includeMarkdown("text_describe.rmd"),
                        hr(),
                        plotOutput("rwlPlot"),
                        selectInput(inputId="rwlPlotType", label="Plot Type", 
                                    choices=c("seg","spag"),
                                    selected = "seg"),
+                       hr(),
+                       verbatimTextOutput("rwlReport"),
                        hr(),
                        tableOutput("rwlSummary"),
                        hr(),
@@ -45,7 +45,7 @@ ui <- fluidPage(
               ),
               # 3rd tab ----
               tabPanel("Correlations between Series", 
-                       includeMarkdown("rwl_correlation.rmd"),
+                       includeMarkdown("text_rwl_correlation.rmd"),
                        plotOutput("crsPlot"),
                        hr(),
                        fluidRow(
@@ -58,7 +58,16 @@ ui <- fluidPage(
                                             step=10))
                        ),
                        fluidRow(
-                         column(2),
+                         column(4,
+                                checkboxGroupInput(inputId = "master", 
+                                                   inline = TRUE,
+                                                   label = "Filter series",
+                                                   choices = c("")),
+                                actionButton(inputId="updateMasterButton", 
+                                             label="Update", 
+                                             class = "btn-primary",
+                                             style='padding:4px; font-size:100%')
+                         ),
                          column(2,
                                 checkboxInput(inputId="prewhitenCRS", label="Prewhiten",value=TRUE),
                                 checkboxInput(inputId="biweightCRS", label="Biweight",value=TRUE)),
@@ -75,8 +84,7 @@ ui <- fluidPage(
                                 selectInput(inputId="methodCRS", label="Method", 
                                             choices=c("pearson", "kendall", "spearman"),
                                             selected = "spearman")
-                         ),
-                         column(2)
+                         )
                        ),
                        fluidRow(
                          hr(),
@@ -95,7 +103,7 @@ ui <- fluidPage(
               ),
               # 4th tab ----
               tabPanel("Individual Series Correlations", 
-                       includeMarkdown("series_correlation.rmd"),
+                       includeMarkdown("text_series_correlation.rmd"),
                        textOutput("flaggedSeries"),
                        p("Output from corr.series.seg."),
                        plotOutput("cssPlot"),
@@ -115,16 +123,7 @@ ui <- fluidPage(
                                             step=10))
                        ),
                        fluidRow(
-                         column(4,
-                                checkboxGroupInput(inputId = "master", 
-                                                   inline = TRUE,
-                                                   label = "Filter series from master",
-                                                   choices = c("")),
-                                actionButton(inputId="updateMasterButton", 
-                                             label="Update master", 
-                                             class = "btn-primary",
-                                             style='padding:4px; font-size:100%')
-                         ),
+                         column(2),
                          column(2,
                                 checkboxInput(inputId="prewhitenCSS", label="Prewhiten",value=TRUE),
                                 checkboxInput(inputId="biweightCSS", label="Biweight",value=TRUE)),
@@ -141,7 +140,8 @@ ui <- fluidPage(
                                 selectInput(inputId="methodCSS", label="Method", 
                                             choices=c("pearson", "kendall", "spearman"),
                                             selected = "spearman")
-                         )
+                         ),
+                         column(2)
                        ),
                        p("Output from ccf.series.rwl"),
                        plotOutput("ccfPlot"),
@@ -195,8 +195,9 @@ ui <- fluidPage(
               tabPanel("Edit Series",
                        sidebarLayout(
                          sidebarPanel(
-                           includeMarkdown("edit.rmd"),
+                           includeMarkdown("text_edit.rmd"),
                            hr(),
+                           h4("Remove Row"),
                            fluidRow(
                              column(6,
                                     actionButton("deleteRows", "Delete Measurement")
@@ -206,10 +207,11 @@ ui <- fluidPage(
                                                   label="Fix Last Year",value=TRUE)
                              )
                            ),
-                           helpText("Click \"Delete\" to delete a year (row). 
+                           helpText("Click \"Delete Measurement\" to delete a year (row). 
                                      If \"Fix Last Year\" is selected the last year of 
                                     growth will stay the same."),
                            hr(),
+                           h4("Add Row"),
                            numericInput(inputId="insertValue", 
                                         label="Measurement Value",
                                         value = 0,
@@ -223,14 +225,15 @@ ui <- fluidPage(
                                                   label="Fix Last Year",value=TRUE)
                              ),
                              helpText("To add a year, enter a 
-                                             value and click \"Insert.\" The new row appears above 
+                                             value and click \"Insert Measurement.\" The new row appears above 
                                       the highlight. If \"Fix Last Year\" is selected the 
                                       last year of growth will stay the same.")
                            ),
                            hr(),
+                           h4("Undo Changes"),
                            actionButton("revertSeries", "Revert Changes"),
                            hr(),
-                           h4("Download"),
+                           h4("Download/Save"),
                            downloadButton('downloadRWL', 'Downlaod rwl object (.rwl)'),
                            helpText("The rwl file is writen in tucson/decadal format readable 
                                      by standard dendro programs.(e.g., read.rwl() in 

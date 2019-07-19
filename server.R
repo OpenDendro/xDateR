@@ -189,8 +189,8 @@ shinyServer(function(session, input, output) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
-      tempReport <- file.path(tempdir(), "rwl_describe_report.Rmd")
-      file.copy("reports/rwl_describe_report.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "report_rwl_describe.Rmd")
+      file.copy("report_rwl_describe.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       rwlObject <- rwlRV$dat
@@ -320,18 +320,18 @@ shinyServer(function(session, input, output) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
-      tempReport <- file.path(tempdir(), "rwl_corr_report.Rmd")
-      file.copy("reports/rwl_corr_report.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "report_rwl_corr.Rmd")
+      file.copy("report_rwl_corr.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       crsObject <- getCRS()
-      crsParams <- list(seg.length=input$seg.length,
-                        bin.floor=input$bin.floor,
-                        n=input$n, 
-                        prewhiten=input$prewhiten, 
-                        pcrit=input$pcrit, 
-                        biweight=input$biweight,
-                        method=input$method)
+      crsParams <- list(seg.length=input$seg.lengthCRS,
+                        bin.floor=input$bin.floorCRS,
+                        n=input$nCRS, 
+                        prewhiten=input$prewhitenCRS, 
+                        pcrit=input$pcritCRS, 
+                        biweight=input$biweightCRS,
+                        method=input$methodCRS)
       params <- list(fileName = input$file1$name,
                      crsObject = crsObject,
                      crsParams = crsParams)
@@ -474,8 +474,8 @@ shinyServer(function(session, input, output) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
-      tempReport <- file.path(tempdir(), "series_report.Rmd")
-      file.copy("reports/series_report.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "report_series.Rmd")
+      file.copy("report_series.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       cssParams <- list(seg.length=input$seg.lengthCSS,
@@ -651,8 +651,8 @@ shinyServer(function(session, input, output) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
-      tempReport <- file.path(tempdir(), "edits_report.Rmd")
-      file.copy("reports/edits_report.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "report_edits.Rmd")
+      file.copy("report_edits.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       params <- list(fileName = input$file1$name,

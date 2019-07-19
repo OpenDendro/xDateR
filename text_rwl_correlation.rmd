@@ -3,6 +3,6 @@ Below is output from [`corr.rwl.seg`](https://rdrr.io/cran/dplR/man/corr.rwl.seg
 
 Each series is represented by two courses of lines with the bottom course adhering to the bottom axis timeline and the top course matching the upper axis timeline.  Segments are colored according to the strength of the correlation between  that segment and the master chronology. Blue correlates well (p-values less  or equal to the user-set critical value) while potential dating problems  are indicated by the red segments (p-values greater than the user-set critical value). Green lines show segments that do not completely overlap the time period and thus have no correlations calculated. This information is also presented in a series of tables following the plot. If any series contains segments of low correlation it is flagged and a summary of the flagged series and segments are given.
 
-Use the widgets below to adjust the arguments.  You can generate a report at the bottom of the page as a stand alone html file. 
+Use the widgets below to adjust the arguments and (temporarily) filter series from the data set. You can generate a report at the bottom of the page as a stand alone html file. 
 
 Proceed to the next tab to investigate a series more thoroughly (e.g., if you find one with a dating problem).

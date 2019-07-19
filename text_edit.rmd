@@ -1,6 +1,6 @@
 This uses the functions [`insert.ring`](https://rdrr.io/cran/dplR/man/insert.ring.html), [`delete.ring`](https://rdrr.io/cran/dplR/man/insert.ring.html), and  [`combine.rwl`](https://rdrr.io/cran/dplR/man/combine.rwl.html) to return a rwl object.
 
-**Instructions**
+### Instructions
 
 1. Highlight a row in the table. 
 2. Edit using "Delete" or "Insert"
