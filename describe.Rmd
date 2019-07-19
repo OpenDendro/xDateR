@@ -1,0 +1,1 @@
+Standard descriptive statistics and a plot are produced. A report can be generated at the bottom of the page. This uses the dplR functions [`rwl.report`](https://rdrr.io/cran/dplR/man/rwl.report.html), [`summary.rwl`](https://rdrr.io/cran/dplR/man/summary.rwl.html), and [`plot.rwl`](https://rdrr.io/cran/dplR/man/plot.rwl.html).

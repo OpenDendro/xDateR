@@ -1,0 +1,8 @@
+This uses the functions [`insert.ring`](https://rdrr.io/cran/dplR/man/insert.ring.html), [`delete.ring`](https://rdrr.io/cran/dplR/man/insert.ring.html), and  [`combine.rwl`](https://rdrr.io/cran/dplR/man/combine.rwl.html) to return a rwl object.
+
+**Instructions**
+
+1. Highlight a row in the table. 
+2. Edit using "Delete" or "Insert"
+3. Review previous tabs to assess effect of the edits.
+4. Click "Revert" to undo your edits or "Download" to write out the rwl file.
