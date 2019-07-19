@@ -6,6 +6,20 @@ library(DT)
 # Define server logic
 shinyServer(function(session, input, output) {
   
+  observe({
+    hide(selector = "#navbar li a[data-value=tab2]")
+    hide(selector = "#navbar li a[data-value=tab3]")
+    hide(selector = "#navbar li a[data-value=tab4]")
+    hide(selector = "#navbar li a[data-value=tab5]")
+  })
+  
+  observeEvent(input$file1, {
+    toggle(selector = "#navbar li a[data-value=tab2]")
+    toggle(selector = "#navbar li a[data-value=tab3]")
+    toggle(selector = "#navbar li a[data-value=tab4]")
+    toggle(selector = "#navbar li a[data-value=tab5]")
+  })
+  
   ##############################################################
   # START reactives
   #
