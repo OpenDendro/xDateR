@@ -4,7 +4,7 @@ library(DT)
 
 ui <- fluidPage(
   title = "xDateR",
-  tabsetPanel(type = "tabs",
+  tabsetPanel(type = "tabs", id="tabs",
               # 1st tab ----
               tabPanel("Introduction and Upload",
                        sidebarLayout(
@@ -28,7 +28,7 @@ ui <- fluidPage(
                        )
               ),
               # 2nd tab ----
-              tabPanel("Describe RWL Data",
+              tabPanel(title="Describe RWL Data",
                        # Sidebar layout with input and output definitions
                        includeMarkdown("text_describe.rmd"),
                        hr(),

@@ -123,10 +123,6 @@ shinyServer(function(session, input, output) {
     },
     label = "observe series being selected and update the window slider")
   
-  # deleting and adding rings goes here
-
-
-  
   # back to buisiness
   
   # reactive to run corr.rwl.seg with inputs gathered from the user.
