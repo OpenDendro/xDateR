@@ -184,13 +184,13 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$rwlSummaryReport <- downloadHandler(
-    filename = "rwlSummaryReport.html",
+    filename = "rwl_summary_report.html",
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
-      tempReport <- file.path(tempdir(), "rwlOutputReport.Rmd")
-      file.copy("rwlOutputReport.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "rwl_describe_report.Rmd")
+      file.copy("reports/rwl_describe_report.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       rwlObject <- rwlRV$dat
@@ -315,13 +315,13 @@ shinyServer(function(session, input, output) {
   ##############################################################
   output$crsReport <- downloadHandler(
     # For PDF output, change this to ".pdf"
-    filename = "rwlCorrelationReport.html",
+    filename = "rwl_correlation_report.html",
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
-      tempReport <- file.path(tempdir(), "crsOutputReport.Rmd")
-      file.copy("crsOutputReport.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "rwl_corr_report.Rmd")
+      file.copy("reports/rwl_corr_report.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       crsObject <- getCRS()
@@ -469,13 +469,13 @@ shinyServer(function(session, input, output) {
   ##############################################################
   output$cssReport <- downloadHandler(
     # For PDF output, change this to ".pdf"
-    filename = "individualSeriesCorrelationReport.html",
+    filename = "series_correlation_report.html",
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
-      tempReport <- file.path(tempdir(), "cssOutputReport.Rmd")
-      file.copy("cssOutputReport.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "series_report.Rmd")
+      file.copy("reports/series_report.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       cssParams <- list(seg.length=input$seg.lengthCSS,
@@ -646,13 +646,13 @@ shinyServer(function(session, input, output) {
   
   output$editReport <- downloadHandler(
     # For PDF output, change this to ".pdf"
-    filename = "editsReport.html",
+    filename = "edits_report.html",
     content = function(file) {
       # Copy the report file to a temporary directory before processing it, in
       # case we don't have write permissions to the current working dir (which
       # can happen when deployed).
-      tempReport <- file.path(tempdir(), "editsOutputReport.Rmd")
-      file.copy("editsOutputReport.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "edits_report.Rmd")
+      file.copy("reports/edits_report.Rmd", tempReport, overwrite = TRUE)
       
       # Set up parameters to pass to Rmd document
       params <- list(fileName = input$file1$name,

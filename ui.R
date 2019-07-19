@@ -18,19 +18,19 @@ ui <- fluidPage(
                                                 ".rwl",
                                                 ".raw",
                                                 ".txt")),
-                           includeMarkdown("upload.rmd")
+                           includeMarkdown("text/upload.rmd")
                          ),
                          
                          # Main panel for displaying outputs
                          mainPanel(
-                           includeMarkdown("intro.rmd")
+                           includeMarkdown("text/intro.rmd")
                          )
                        )
               ),
               # 2nd tab ----
               tabPanel("Describe RWL Data",
                        # Sidebar layout with input and output definitions
-                       includeMarkdown("describeRWL.rmd"),
+                       includeMarkdown("text/describe.rmd"),
                        hr(),
                        verbatimTextOutput("rwlReport"),
                        hr(),
@@ -45,7 +45,7 @@ ui <- fluidPage(
               ),
               # 3rd tab ----
               tabPanel("Correlations between Series", 
-                       includeMarkdown("corrRWL.rmd"),
+                       includeMarkdown("text/rwl_correlation.rmd"),
                        plotOutput("crsPlot"),
                        hr(),
                        fluidRow(
@@ -95,7 +95,7 @@ ui <- fluidPage(
               ),
               # 4th tab ----
               tabPanel("Individual Series Correlations", 
-                       includeMarkdown("corrSeries.rmd"),
+                       includeMarkdown("text/series_correlation.rmd"),
                        textOutput("flaggedSeries"),
                        p("Output from corr.series.seg."),
                        plotOutput("cssPlot"),
@@ -195,7 +195,7 @@ ui <- fluidPage(
               tabPanel("Edit Series",
                        sidebarLayout(
                          sidebarPanel(
-                           includeMarkdown("editSeries.rmd"),
+                           includeMarkdown("text/edit.rmd"),
                            hr(),
                            fluidRow(
                              column(6,
