@@ -32,7 +32,6 @@ res2 <- kable(res, format="html") %>%
 gsub("<thead>.*</thead>", "", res2)
 ```
 
-Parameters used in this run, in no particular order:
 
 ```{r,echo=FALSE}
 tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
@@ -46,11 +45,10 @@ tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
                            cssParams$winCenter,
                            cssParams$winWidth,
                            cssParams$lagCCF))
-kable(tab2,caption="Params") %>%
+kable(tab2,caption="Paramaters") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
-Results from `corr.series.seg`
 
 ```{r, echo=FALSE}
 dat <- params$rwlObject
@@ -69,8 +67,6 @@ css <- corr.series.seg(dat, series = cssParams$series,
 ```
 
 
-Results from `ccf.series.rwl`
-
 ```{r, echo=TRUE}
 yrs <- time(dat)
 ccfObject <- ccf.series.rwl(dat[yrs %in% cssParams$winCCF,], 
@@ -82,8 +78,6 @@ ccfObject <- ccf.series.rwl(dat[yrs %in% cssParams$winCCF,],
                             lag.max = cssParams$lagCCF,make.plot=TRUE)
 ```
 
-
-Results from `xskel.ccf.plot`
 
 ```{r, echo=FALSE}
     wCenter <- cssParams$winCenter - (cssParams$winWidth/2)
