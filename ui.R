@@ -116,6 +116,8 @@ ui <- tagList(
     # 4th tab ----
     tabPanel(title="Individual Series Correlations", value="tab4",
              includeMarkdown("text_series_correlation.rmd"),
+             hr(),
+             h4("Flagged Series"),
              textOutput("flaggedSeries"),
              h4("Series Correlation"),
              plotOutput("cssPlot"),
@@ -182,7 +184,7 @@ ui <- tagList(
                column(2),
                column(4,
                       sliderInput(inputId = "winCenter",
-                                  label="Year to center window",
+                                  label="Window Center",
                                   value=NA,
                                   min=NA,
                                   max=NA,
