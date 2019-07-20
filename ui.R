@@ -44,8 +44,10 @@ ui <- tagList(
                          choices=c("seg","spag"),
                          selected = "seg"),
              hr(),
+             h4("RWL Report"),
              verbatimTextOutput("rwlReport"),
              hr(),
+             h4("Series Summary"),
              tableOutput("rwlSummary"),
              hr(),
              downloadButton("rwlSummaryReport", "Generate report")
@@ -53,6 +55,7 @@ ui <- tagList(
     # 3rd tab ----
     tabPanel(title="Correlations between Series", value="tab3",
              includeMarkdown("text_rwl_correlation.rmd"),
+             h4("Correlation by Series and Segment"),
              plotOutput("crsPlot"),
              hr(),
              fluidRow(
@@ -95,6 +98,7 @@ ui <- tagList(
              ),
              fluidRow(
                hr(),
+               h4("Correlation Overview"),
                column(4,
                       DTOutput("crsOverall")),
                column(4,
@@ -104,6 +108,7 @@ ui <- tagList(
              ),
              fluidRow(
                hr(),
+               h4("Correlation by Series/Segment"),
                DTOutput("crsCorrBin")),
              hr(),
              downloadButton("crsReport", "Generate report")
@@ -112,7 +117,7 @@ ui <- tagList(
     tabPanel(title="Individual Series Correlations", value="tab4",
              includeMarkdown("text_series_correlation.rmd"),
              textOutput("flaggedSeries"),
-             p("Output from corr.series.seg."),
+             h4("Series Correlation"),
              plotOutput("cssPlot"),
              hr(),
              fluidRow(
@@ -150,7 +155,7 @@ ui <- tagList(
                ),
                column(2)
              ),
-             p("Output from ccf.series.rwl"),
+             h4("Series Cross-Correlation by Segment"),
              plotOutput("ccfPlot"),
              fluidRow(
                column(2),
@@ -171,7 +176,7 @@ ui <- tagList(
                column(2)
              ),
              hr(),
-             p("Output from xskel.ccf.plot"),
+             h4("Series Cross-Correlation with Skeleton Plot"),
              plotOutput("xskelPlot"),
              fluidRow(
                column(2),
