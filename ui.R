@@ -63,7 +63,7 @@ ui <- tagList(
                       sliderInput(inputId="seg.lengthCRS",
                                   label="Segment Length",
                                   min = 10,
-                                  max = 100,
+                                  max = 200,
                                   value = 50,
                                   step=10))
              ),
@@ -132,7 +132,7 @@ ui <- tagList(
                       sliderInput(inputId="seg.lengthCSS",
                                   label="Segment Length",
                                   min = 10,
-                                  max = 100,
+                                  max = 200,
                                   value = 50,
                                   step=10))
              ),
@@ -194,7 +194,7 @@ ui <- tagList(
                column(4,
                       sliderInput(inputId="winWidth", 
                                   label="Window width",
-                                  value=50,min=20,max=100,step=10)
+                                  value=50,min=10,max=200,step=10)
                ),
                column(2)
              ),
