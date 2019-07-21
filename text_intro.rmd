@@ -1,13 +1,13 @@
-Welcome to the beta version of **xDateR** -- a Shiny app for crossdating tree-ring data. This app will help you do initial quality control on a set of (usually) ring widths and potentially identify dating problems. This uses the existing functions in the package *dplR*.  The idea for this app is to use existing functions in the pacakge *dplR* to provide an interactive environment for assessing dating quality and potentially fixing problems.
+Welcome to the beta version of **xDateR** -- a Shiny app for crossdating tree-ring data. This app will help you do initial quality control on a set of (usually) ring widths and potentially identify dating problems.  The idea for this app is to use existing functions in the pacakge *dplR* to provide an interactive environment for assessing dating quality and potentially fixing problems.
 
-This app contains tools for crossdating data uploaded in an accepted standard *rwl* file format. You should start by uploading a file using the widget on the left. If you want to use an example data set you can download some ring-width data where the dates in some of the series have been deliberately corrupted. That file is available at:
+This app contains tools for crossdating data uploaded in an accepted standard *rwl* file format. You should start by uploading a file using the widget on the left. If you want to use an example data set you can download these ring-width data where the dates in some of the series have been deliberately corrupted. That file is available at:
 [www.github.com/AndyBunn/dplR/data/xDateRtest.rwl](https://github.com/AndyBunn/dplR/data/xDateRtest.rwl)
 
 After uploading, standard descriptive statistics and plots are produced in the **Describe RWL Data** tab. This is the beginning of the cross-dating process. The **Correlations between Series** tab produces standard correlation graphs and statistics based on segment length and other options specified by the user. The **Individual Series Correlations** tab allows individual series to be further investigated via running and cross-correlation analyses. Rings can be added and deleted using the **Edit Series** tab. Reports can be saved at every step and a *rwl* file can be written. 
 
-Functionality to work with undated series is under development coming soon.
+Functionality to work with undated series is coming soon.
 
-[This project is hosted on GitHub](https://github.com/AndyBunn/dplR/) as is [dplR](https://github.com/AndyBunn/dplR/). 
+[This project is on GitHub](https://github.com/AndyBunn/dplR/) as is [dplR](https://github.com/AndyBunn/dplR/). 
 
 Remember! Users should never rely purely on statistical crossdating but always go back to the wood to verify what is actually happening. 
 
