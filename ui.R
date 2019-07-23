@@ -3,12 +3,11 @@ library(dplR)
 library(DT)
 library(shinyjs)
 
-#ui <- fluidPage(
-#  title = "xDateR",
-#  tabsetPanel(type = "tabs", id="tabs",
 ui <- tagList(
   useShinyjs(),
-  
+  tags$head(
+    tags$style(HTML("hr {border-top: 1px solid #000000;}"))
+  ),
   navbarPage(
     title = "xDateR",
     id = "navbar",
@@ -17,7 +16,10 @@ ui <- tagList(
              sidebarLayout(
                # Sidebar panel for inputs
                sidebarPanel(
-                 h3("Upload a RWL file"),
+                 h5("Upload RWL"),
+                 includeMarkdown("text_upload.rmd"),
+                 hr(),
+                 h5("Dated Series"),
                  fileInput(inputId="file1", 
                            label=NULL,
                            multiple = FALSE,
@@ -25,7 +27,21 @@ ui <- tagList(
                                       ".rwl",
                                       ".raw",
                                       ".txt")),
-                 includeMarkdown("text_upload.rmd")
+                 checkboxInput(inputId="useDemoDated", label="Or use example data",
+                               value=FALSE),
+                 shinyjs::hidden(div(id='divUndated', 
+                                     hr(),
+                                     h5("Undated Series (Optional)"),
+                                     fileInput(inputId="file2", 
+                                               label=NULL,
+                        multiple = FALSE,
+                           accept = c("text/plain",
+                                      ".rwl",
+                                      ".raw",
+                                      ".txt")),
+                 checkboxInput(inputId="useDemoUndated", label="Or use example (undated) data",
+                               value=FALSE)
+                 ))
                ),
                
                # Main panel for displaying outputs
@@ -44,10 +60,10 @@ ui <- tagList(
                          choices=c("seg","spag"),
                          selected = "seg"),
              hr(),
-             h4("RWL Report"),
+             h5("RWL Report"),
              verbatimTextOutput("rwlReport"),
              hr(),
-             h4("Series Summary"),
+             h5("Series Summary"),
              tableOutput("rwlSummary"),
              hr(),
              downloadButton("rwlSummaryReport", "Generate report")
@@ -55,7 +71,7 @@ ui <- tagList(
     # 3rd tab ----
     tabPanel(title="Correlations between Series", value="tab3",
              includeMarkdown("text_rwl_correlation.rmd"),
-             h4("Correlation by Series and Segment"),
+             h5("Correlation by Series and Segment"),
              plotOutput("crsPlot"),
              hr(),
              fluidRow(
@@ -98,7 +114,7 @@ ui <- tagList(
              ),
              fluidRow(
                hr(),
-               h4("Correlation Overview"),
+               h5("Correlation Overview"),
                column(4,
                       DTOutput("crsOverall")),
                column(4,
@@ -108,7 +124,7 @@ ui <- tagList(
              ),
              fluidRow(
                hr(),
-               h4("Correlation by Series/Segment"),
+               h5("Correlation by Series/Segment"),
                DTOutput("crsCorrBin")),
              hr(),
              downloadButton("crsReport", "Generate report")
@@ -117,9 +133,9 @@ ui <- tagList(
     tabPanel(title="Individual Series Correlations", value="tab4",
              includeMarkdown("text_series_correlation.rmd"),
              hr(),
-             h4("Flagged Series"),
+             h5("Flagged Series"),
              textOutput("flaggedSeries"),
-             h4("Series Correlation"),
+             h5("Series Correlation"),
              plotOutput("cssPlot"),
              hr(),
              fluidRow(
@@ -157,7 +173,7 @@ ui <- tagList(
                ),
                column(2)
              ),
-             h4("Series Cross-Correlation by Segment"),
+             h5("Series Cross-Correlation by Segment"),
              plotOutput("ccfPlot"),
              fluidRow(
                column(2),
@@ -178,7 +194,7 @@ ui <- tagList(
                column(2)
              ),
              hr(),
-             h4("Series Cross-Correlation with Skeleton Plot"),
+             h5("Series Cross-Correlation with Skeleton Plot"),
              plotOutput("xskelPlot"),
              fluidRow(
                column(2),
@@ -211,7 +227,7 @@ ui <- tagList(
                sidebarPanel(
                  includeMarkdown("text_edit.rmd"),
                  hr(),
-                 h4("Remove Row"),
+                 h5("Remove Row"),
                  fluidRow(
                    column(6,
                           actionButton("deleteRows", "Delete Measurement")
@@ -225,7 +241,7 @@ ui <- tagList(
                                      If \"Fix Last Year\" is selected the last year of 
                                     growth will stay the same."),
                  hr(),
-                 h4("Add Row"),
+                 h5("Add Row"),
                  numericInput(inputId="insertValue", 
                               label="Measurement Value",
                               value = 0,
@@ -244,16 +260,16 @@ ui <- tagList(
                                       last year of growth will stay the same.")
                  ),
                  hr(),
-                 h4("Undo Changes"),
+                 h5("Undo Changes"),
                  actionButton("revertSeries", "Revert Changes"),
                  hr(),
-                 h4("Download/Save"),
+                 h5("Download/Save"),
                  downloadButton('downloadRWL', 'Downlaod rwl object (.rwl)'),
                  helpText("The rwl file is writen in tucson/decadal format readable 
                                      by standard dendro programs.(e.g., read.rwl() in 
                                      dplR)."),
                  hr(),
-                 h4("Log"),
+                 h5("Log"),
                  verbatimTextOutput("editLog"),
                  downloadButton("editReport", "Generate report"),
                  width=5),
@@ -264,6 +280,71 @@ ui <- tagList(
                  dataTableOutput("table1"),
                  width=7)
              )
+    ),
+    #############################################
+    tabPanel(title="Undated Series",value="tab6",
+             includeMarkdown("text_undated.rmd"),
+             fluidRow(
+               column(4,
+                      selectInput(inputId = "series2",
+                                  label = "Choose undated series",
+                                  choices = c("bar"))
+                      ),
+               column(8,
+                      h5("Floater Report"),
+                      htmlOutput("floaterText")
+               )
+             ),
+             h5("Best Overall Dating for Series"),
+             plotOutput("floaterPlot"),
+             fluidRow(
+               column(2),
+               column(2,
+                      checkboxInput(inputId="prewhitenUndated", label="Prewhiten",value=TRUE),
+                      checkboxInput(inputId="biweightUndated", label="Biweight",value=TRUE)),
+               column(3,
+                      selectInput(inputId="nUndated", label="n", 
+                                  choices=c("NULL", seq(5,13,by=2)),
+                                  selected = "NULL"),
+                      selectInput(inputId="methodUndated", label="Method", 
+                                  choices=c("pearson", "kendall", "spearman"),
+                                  selected = "spearman")
+               ),
+               column(3,
+                      sliderInput(inputId="minOverlapUndated", label="Minimim Overlap", 
+                                   value=50,min=10,max=200,step=10)
+               ),
+               column(2)
+             ),
+             hr(),
+             plotOutput("ccfPlotUndated"),
+             fluidRow(
+               column(2),
+               column(4,align="center",
+                      sliderInput(inputId="seg.lengthUndated",
+                                  label="Segment Length",
+                                  min = 10,
+                                  max = 200,
+                                  value = 50,
+                                  step=10)),
+               column(4,
+                      selectInput(inputId="bin.floorUndated", label="Bin Floor", 
+                                  choices=c(0, 10, 50, 100),selected = 10),
+                      numericInput(inputId="pcritUndated", label="P crit", 
+                                   value=0.05,min=0,max=1,step=0.01)
+               ),
+               column(2)
+             ),
+             hr(),
+             textAreaInput(inputId="datingNotes2", 
+                           label="Dating notes",
+                           value="",width="600px",height = "400px",
+                           placeholder="Notes will be saved if you generate a report."),
+             hr(),
+             #p("Add start and end dates to each series and save to RWL"),
+             hr(),
+             downloadButton("undatedReport", "Generate report")
+             
     )
     # end tabs ----
   )

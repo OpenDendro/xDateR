@@ -1,0 +1,8 @@
+### Dating a Floating Series
+Here you can attempt to find the dates for an undated series. Unlike the rest of this app, this functionality is not yet in **dplR** (it will be in the next release). If you uploaded a "Undated Series" *rwl* file on the first tab the series will be available in the drop down. Selecting one causes that series to be dragged along the dated *rwl* object in order to establish possible dates for the series. Similar options to previous tabs regarding prewhitening etc are available.
+
+A brief report giving the best match for the dates of the series is given. Then, in the first plot the selected series with the best dates is shown as segments (top panel). The selected series is shown in green. In the bottom panel the grey line shows the correlation for for the elected series to the master for the given date range. This is indexed by the end (outer) year of the series. The green dots and dashed green line show the dates. The blue box shows the 5th to 95th quantile of the typical interseries correlation in the master chronology. In general, the selected series should be within that box. The dark blue line shows the median inter series correlation in the master (dated) chronology. The dashed black line shows the significant correlation level for a given date. In general this is much lower than the typical interseries correlation.
+
+The second plot shows shows cross-correlations between the selected series and the master chronology for each segment. 
+
+This is still very much under development. The ability to save series as dated objects will be along shortly.

@@ -1,0 +1,63 @@
+---
+title: "Report: Individual Series Correlations"
+output: html_document
+params:
+  fileName: NA
+  floaterObject: NA
+  undatedParams: NA
+---
+
+```{r,echo=FALSE}
+library(DT)
+library(knitr)
+library(kableExtra)
+undatedParams <- params$undatedParams
+floaterObject <- params$floaterObject
+floaterCorStats <- floaterObject$floaterCorStats
+rBest <- which.max(floaterCorStats$r)
+firstBest <- floaterCorStats$first[rBest]
+lastBest <- floaterCorStats$last[rBest]
+rBest <- floaterCorStats$r[rBest]
+pBest <- floaterCorStats$p[rBest]
+
+fname <- ifelse(is.null(params$fileName),yes = "Demo Data",no = params$fileName)
+```
+
+The original file passed in to the xDateR app was `r fname`. The series selected is `r floaterObject$series.name`. 
+
+###Floater Report
+Series Name: `r floaterObject$series.name` 
+
+Years searched `r min(floaterCorStats$first)` to  `r max(floaterCorStats$last)`
+
+Highest overall correlation for series is `round(rBest,2)` with dates `firstBest` to `lastBest`
+
+```{r, echo=FALSE}
+ plot.floater(floaterObject)
+```
+
+```{r, echo=FALSE}
+
+dat <- floaterObject$rwlCombined
+if(undatedParams$n=="NULL"){
+  n <- NULL
+}
+if(undatedParams$n!="NULL"){
+  n <- as.numeric(undatedParams$n)
+}
+
+ccfObject <- ccf.series.rwl(dat, 
+                            series = floaterObject$series.name, 
+                            seg.length = undatedParams$seg.length, 
+                            bin.floor = as.numeric(undatedParams$bin.floor),
+                            n = n,
+                            prewhiten = undatedParams$prewhiten, 
+                            pcrit = undatedParams$pcrit,
+                            biweight = undatedParams$biweight, 
+                            method = undatedParams$method,
+                            make.plot=TRUE)
+```
+
+###Dating Notes
+
+`r undatedParams$datingNotes`

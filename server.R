@@ -3,6 +3,10 @@ library(rmarkdown)
 library(dplR)
 library(DT)
 
+source("xdate.floater.R")  
+
+
+
 # Define server logic
 shinyServer(function(session, input, output) {
   
@@ -11,15 +15,26 @@ shinyServer(function(session, input, output) {
     hide(selector = "#navbar li a[data-value=tab3]")
     hide(selector = "#navbar li a[data-value=tab4]")
     hide(selector = "#navbar li a[data-value=tab5]")
+    hide(selector = "#navbar li a[data-value=tab6]")
   })
   
-  observeEvent(input$file1, {
-    toggle(selector = "#navbar li a[data-value=tab2]")
-    toggle(selector = "#navbar li a[data-value=tab3]")
-    toggle(selector = "#navbar li a[data-value=tab4]")
-    toggle(selector = "#navbar li a[data-value=tab5]")
-  })
+  observeEvent({getRWL()},
+               {
+                 toggle(selector = "#navbar li a[data-value=tab2]")
+                 toggle(selector = "#navbar li a[data-value=tab3]")
+                 toggle(selector = "#navbar li a[data-value=tab4]")
+                 toggle(selector = "#navbar li a[data-value=tab5]")
+               })
   
+  observeEvent({getRWLUndated()},
+               {
+                 toggle(selector = "#navbar li a[data-value=tab6]")
+               })
+  
+  observeEvent(getRWL(), {
+    shinyjs::show('divUndated')
+  })
+    
   ##############################################################
   # START reactives
   #
@@ -38,18 +53,40 @@ shinyServer(function(session, input, output) {
   rwlRV <- reactiveValues()
   rwlRV$edits <- NULL
   
-  # This is a reactive to get the RWL file from the user at the start.
+  # This is a reactive to get the RWL file from the user at the start or use demo data
   getRWL <- reactive({
+    if (input$useDemoDated) {
+      dat <- read.rwl("data/xDateRtest.rwl")
+      return(dat)
+    }
     inFile <- input$file1
     if (is.null(inFile)) {
       return(NULL)
     }
     else{
       dat <- read.rwl(inFile$datapath)
+      return(dat)
     }
-    dat
+    
   })
   
+  # for undated file
+  getRWLUndated <- reactive({
+    if (input$useDemoUndated) {
+      dat <- read.rwl("data/xDateRtestUndated.rwl")
+      rwlRV$datUndated <- dat
+      return(dat)
+    }
+    inFile <- input$file2
+    if (is.null(inFile)) {
+      return(NULL)
+    }
+    else{
+      dat <- read.rwl(inFile$datapath)
+      rwlRV$datUndated <- dat
+      return(dat)
+    }
+  })
   # This observes the input RWL and gets the names of the series. These names 
   # get passed to the checkboxes for possible filtering later (when the action button
   # is pressed).
@@ -105,9 +142,23 @@ shinyServer(function(session, input, output) {
     label = "observe series being selected and update the input box")
   
   
+  # observe which series gets selected from the undates file
+  # series.
+  observeEvent(
+    eventExpr = {
+      getRWLUndated()
+    }, 
+    handlerExpr = {
+      updateSelectInput(session = session,
+                        inputId = "series2",
+                        choices=colnames(rwlRV$datUndated),
+                        selected=colnames(rwlRV$datUndated)[1])
+    },
+    label = "observe series being selected and update the input box")
+  
   # observe which series gets selected for the individual series correlation
   # get the start and end dates for the series. These are used to
-  # update the window slider for the xskel plot
+  # update the window slider for the ccf window and xskel plot
   observeEvent(
     eventExpr = {
       # this is what triggers the observation
@@ -130,7 +181,7 @@ shinyServer(function(session, input, output) {
       updateSliderInput(session = session,
                         inputId = "rangeCCF",
                         value=c(minWin,
-                                 maxWin),
+                                maxWin),
                         min=minWin,
                         max=maxWin,
                         step=5)
@@ -160,6 +211,27 @@ shinyServer(function(session, input, output) {
     crs
   })
   
+  getFloater <- reactive({
+    master <- filteredRWL()
+    series2get <- input$series2
+    if(series2get == "bar") {series2get <- 1}
+    series2date <- rwlRV$datUndated[,series2get]
+    if(input$nUndated=="NULL"){
+      n <- NULL
+    }
+    else{
+      n <- as.numeric(input$nUndated)
+    }
+    
+    res <- xdate.floater(rwl=master, series=series2date, 
+                         series.name = input$series2, 
+                         min.overlap=input$minOverlapUndated, 
+                         n=n, prewhiten = input$prewhitenUndated, 
+                         biweight=input$biweightUndated, 
+                         method = input$methodUndated,
+                         return.rwl = TRUE)
+    res
+  })
   
   ##############################################################
   #
@@ -175,17 +247,20 @@ shinyServer(function(session, input, output) {
   ##############################################################
   
   output$rwlReport <- renderPrint({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     rwl.report(filteredRWL())
   })
   
   output$rwlPlot <- renderPlot({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     plot.rwl(filteredRWL(),plot.type = input$rwlPlotType)
   })
   
   output$rwlSummary <- renderTable({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     summary(filteredRWL())
   })
   ##############################################################
@@ -223,7 +298,8 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$crsPlot <- renderPlot({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     # need to build plot here by hand I think
     crsObject <- getCRS()
     plot(crsObject)
@@ -235,7 +311,8 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$crsOverall <- renderDT({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     crsObject <- getCRS()
     overallCor <- round(crsObject$overall,3)
     res <- data.frame(Series=rownames(overallCor),
@@ -256,7 +333,8 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$crsAvgCorrBin <- renderDT({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     crsObject <- getCRS()
     binNames <- paste(crsObject$bins[,1], "-", crsObject$bins[,2], sep="")
     res <- data.frame(series=binNames,round(crsObject$avg.seg.rho,3))
@@ -277,7 +355,8 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$crsFlags <- renderDT({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     crsObject <- getCRS()
     flags <- crsObject$flags
     if(length(flags) == 0){res <- NULL}
@@ -302,7 +381,8 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$crsCorrBin <- renderDT({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     crsObject <- getCRS()
     binNames <- paste(crsObject$bins[,1], "-", crsObject$bins[,2], sep="")
     res <- round(crsObject$spearman.rho,3)
@@ -342,7 +422,7 @@ shinyServer(function(session, input, output) {
                         pcrit=input$pcritCRS, 
                         biweight=input$biweightCRS,
                         method=input$methodCRS)
-      params <- list(fileName = input$file1$name,
+      params <- list(fileName = input$file2$name,
                      crsObject = crsObject,
                      crsParams = crsParams)
       
@@ -363,7 +443,8 @@ shinyServer(function(session, input, output) {
   ##############################################################
   
   output$flaggedSeries <- renderText({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     crsObject <- getCRS()
     flags <- crsObject$flags
     if(length(flags) == 0){
@@ -394,7 +475,8 @@ shinyServer(function(session, input, output) {
   ##############################################################
   output$cssPlot <- renderPlot({
     req(input$series)
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     dat <- rwlRV$dat
     
     if(input$nCSS=="NULL"){
@@ -418,7 +500,8 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$ccfPlot <- renderPlot({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     req(input$series)
     dat <- rwlRV$dat
     yrs <- time(dat)
@@ -444,7 +527,8 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$xskelPlot <- renderPlot({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     req(input$series)
     dat <- rwlRV$dat
     
@@ -457,12 +541,12 @@ shinyServer(function(session, input, output) {
     
     wCenter <- input$winCenter - (input$winWidth/2)
     
-    xskeObject <- xskel.ccf.plot(dat, series = input$series, 
-                                 win.start = wCenter,
-                                 win.width = input$winWidth,
-                                 n = n,
-                                 prewhiten = input$prewhitenCSS,
-                                 biweight = input$biweightCSS)
+    xskelObject <- xskel.ccf.plot(dat, series = input$series, 
+                                  win.start = wCenter,
+                                  win.width = input$winWidth,
+                                  n = n,
+                                  prewhiten = input$prewhitenCSS,
+                                  biweight = input$biweightCSS)
   })
   
   ##############################################################
@@ -629,7 +713,7 @@ shinyServer(function(session, input, output) {
     #write to RV fo ease in editing observations
     rwlRV$datNoSeries <- datNoSeries
     rwlRV$seriesDF <- seriesDF
-
+    
     datatable(rwlRV$seriesDF,
               selection=list(mode="single",target="row"),
               rownames = FALSE, 
@@ -639,7 +723,7 @@ shinyServer(function(session, input, output) {
                              lengthChange=FALSE,
                              columnDefs = list(list(className = 'dt-left', 
                                                     targets = "_all"))))
-
+    
   })
   
   ##############################################################
@@ -648,7 +732,8 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   output$editLog <- renderPrint({
-    req(input$file1)
+    #req(input$file1)
+    req(filteredRWL())
     if(!is.null(rwlRV$edits)){
       rwlRV$edits  
     }
@@ -679,12 +764,6 @@ shinyServer(function(session, input, output) {
     }
   )
   
-  ##############################################################
-  #
-  # 4th tab -- save stuff
-  #
-  ##############################################################
-  
   output$downloadRWL <- downloadHandler(
     filename = function() {
       paste(input$file1, "-",Sys.Date(), ".rwl", sep="") 
@@ -694,6 +773,103 @@ shinyServer(function(session, input, output) {
     }
   )
   
+  ##############################################################
+  #
+  # 6th tab -- floaters
+  #
+  ##############################################################
   
-})
+  output$floaterText <- renderText({
+    req(getRWLUndated())
+    req(getFloater())
+    floaterObject <- getFloater()
+    floaterReport <- floaterObject$floaterReport
+    floaterCorStats <- floaterObject$floaterCorStats
+    rBest <- which.max(floaterCorStats$r)
+    firstBest <- floaterCorStats$first[rBest]
+    lastBest <- floaterCorStats$last[rBest]
+    rBest <- floaterCorStats$r[rBest]
+    pBest <- floaterCorStats$p[rBest]
+    
+    #paste("Original rwl years: ", floaterReport["minTimeRWL"], " to ", 
+    #floaterReport["maxTimeRWL"]," (", 
+    #floaterReport["nTimeRWL"], ")<br/>",
+    #"Detrended rwl years: ", floaterReport["minDetrendedTime"], " to ", 
+    #floaterReport["maxDetrendedTime"], " (", 
+    #floaterReport["nDetrendedTime"], ")<br/>",
+    #"Original series length:", floaterReport["nSeries"], "<br/>",
+    #"Detrended series length:", floaterReport["ny"], "<br/>",
+    #"Minimum overlap for search:", floaterReport["min.overlap"], "<br/>",
+    #"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", "<br/>",
+    paste("Series Name: ", floaterObject$series.name,"<br/>",
+          "Years searched ", min(floaterCorStats$first), " to ", max(floaterCorStats$last), "<br/>",
+          "Highest overall correlation for series is ", round(rBest,2), 
+          " with dates ", firstBest, " to ", lastBest, "<br/>", sep="")
+    
+  })
+  
+  output$floaterPlot <- renderPlot({
+    req(getRWLUndated())
+    floaterObject <- getFloater()
+    plot.floater(floaterObject)
+  })
+  
+  output$ccfPlotUndated <- renderPlot({
+    floaterObject <- getFloater()
+    series2get <- floaterObject$series.name
+    dat <- floaterObject$rwlCombined
+    if(input$nUndated=="NULL"){
+      n <- NULL
+    }
+    else{
+      n <- as.numeric(input$nUndated)
+    }
+
+    ccfObject <- ccf.series.rwl(dat, series = input$series2,
+                                seg.length = input$seg.lengthUndated,
+                                bin.floor = as.numeric(input$bin.floorUndated),
+                                n = n,
+                                prewhiten = input$prewhitenUndated,
+                                pcrit = input$pcritUndated,
+                                biweight = input$biweightUndated,
+                                method = input$methodUndated,
+                                make.plot=TRUE)
+  })
+  
+#############
+  output$undatedReport <- downloadHandler(
+    # For PDF output, change this to ".pdf"
+    filename = "undated_series_report.html",
+    content = function(file) {
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReport <- file.path(tempdir(), "report_undated_series.Rmd")
+      file.copy("report_undated_series.Rmd", tempReport, overwrite = TRUE)
+      
+      # Set up parameters to pass to Rmd document
+      undatedParams <- list(seg.length=input$seg.lengthUndated,
+                        bin.floor=input$bin.floorUndated,
+                        n=input$nUndated, 
+                        prewhiten=input$prewhitenUndated, 
+                        pcrit=input$pcritUndated, 
+                        biweight=input$biweightUndated,
+                        method=input$methodUndated,
+                        series=input$series2,
+                        datingNotes=input$datingNotes2)
+      params <- list(fileName = input$file2$name,
+                     floaterObject = getFloater(),
+                     undatedParams = undatedParams)
+      
+      # Knit the document, passing in the `params` list, and eval it in a
+      # child of the global environment (this isolates the code in the document
+      # from the code in this app).
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  
+  })
 
