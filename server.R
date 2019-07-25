@@ -5,88 +5,57 @@ library(DT)
 
 source("xdate.floater.R")  
 
-
-
-# Define server logic
+# Server logic
 shinyServer(function(session, input, output) {
   
+  # Declare a few things
+
+  # Initiate an object (empty now) that will hold the rwl data
+  # (and a backup). The advantage of this is that it can be edited 
+  rwlRV <- reactiveValues()
+  # why is this set here?
+  rwlRV$edits <- NULL
+  
+  ##############################################################
+  #
+  # START observations
+  #
+  ##############################################################
+  
+  
+  # When app is initiated, hide all the tabs but the first one.
+  # This creates an oberver so that they can be toggled when triggered
+  # by an event
   observe({
     hide(selector = "#navbar li a[data-value=tab2]")
     hide(selector = "#navbar li a[data-value=tab3]")
     hide(selector = "#navbar li a[data-value=tab4]")
     hide(selector = "#navbar li a[data-value=tab5]")
     hide(selector = "#navbar li a[data-value=tab6]")
-  })
+  }, label = "tab hider")
   
+  # When the dated RWL file is read in: 
+  # 1. show all the tabs but the floater tab, and
+  # 2. show the upload box for the flaoters
   observeEvent({getRWL()},
                {
                  toggle(selector = "#navbar li a[data-value=tab2]")
                  toggle(selector = "#navbar li a[data-value=tab3]")
                  toggle(selector = "#navbar li a[data-value=tab4]")
                  toggle(selector = "#navbar li a[data-value=tab5]")
-               })
+                 shinyjs::show('divUndated')
+               }, label = "tab shower")
   
-  observeEvent({getRWLUndated()},
-               {
-                 toggle(selector = "#navbar li a[data-value=tab6]")
-               })
+  # When an undated RWL file is read in, show all the floater tab
+  observeEvent(
+    eventExpr = {
+      getRWLUndated()
+    },
+    handlerExpr = {
+      toggle(selector = "#navbar li a[data-value=tab6]")
+    }, 
+    label = "tab shower")
   
-  observeEvent(getRWL(), {
-    shinyjs::show('divUndated')
-  })
-    
-  ##############################################################
-  # START reactives
-  #
-  # we use reactives for two reasons (at least). The first is
-  # so that calculations (like corr.rwl.seg)
-  # need to be done only once. The output can get passed between 
-  # tabs and code chunks. The second reason is so user input can 
-  # be gathered from the UI dynamically and passed. 
-  # E.g., selecting series. These dynamic things are obervations 
-  # and actions. At moment, I'm pretty confised about terminolgy
-  #
-  ##############################################################
-  
-  # this is an object (empty now) that will hold the rwl data
-  # (and a backup) that can be edited and passed around
-  rwlRV <- reactiveValues()
-  rwlRV$edits <- NULL
-  
-  # This is a reactive to get the RWL file from the user at the start or use demo data
-  getRWL <- reactive({
-    if (input$useDemoDated) {
-      dat <- read.rwl("data/xDateRtest.rwl")
-      return(dat)
-    }
-    inFile <- input$file1
-    if (is.null(inFile)) {
-      return(NULL)
-    }
-    else{
-      dat <- read.rwl(inFile$datapath)
-      return(dat)
-    }
-    
-  })
-  
-  # for undated file
-  getRWLUndated <- reactive({
-    if (input$useDemoUndated) {
-      dat <- read.rwl("data/xDateRtestUndated.rwl")
-      rwlRV$datUndated <- dat
-      return(dat)
-    }
-    inFile <- input$file2
-    if (is.null(inFile)) {
-      return(NULL)
-    }
-    else{
-      dat <- read.rwl(inFile$datapath)
-      rwlRV$datUndated <- dat
-      return(dat)
-    }
-  })
   # This observes the input RWL and gets the names of the series. These names 
   # get passed to the checkboxes for possible filtering later (when the action button
   # is pressed).
@@ -98,33 +67,7 @@ shinyServer(function(session, input, output) {
                                choices=colnames(getRWL()),
                                selected=colnames(getRWL()))
     },
-    label = "passes the col names to the UI for the master filtering I think")
-  
-  # This is the reactive that filters that RWL object.
-  # It waits for an event to occur. Here it waits for 
-  # updateMasterButton to be invoked with the action button. I think. And then it
-  # filters the RWL
-  
-  filteredRWL <- eventReactive(
-    eventExpr = {
-      # both these events have to happen to trigger this
-      input$updateMasterButton
-      getRWL()
-    },
-    #handlerExpr ={},# not needed unlesd something is invalidated? Maybe
-    valueExpr = {
-      # this is what happens if triggered
-      req(getRWL())
-      if(is.null(input$master) || input$master == ""){
-        res <- getRWL()
-      }
-      else {
-        res <- getRWL()[, colnames(getRWL()) %in% input$master]
-      }
-      rwlRV$dat <- res
-      rwlRV$datVault <- res
-    },
-    label = "filteredRWL eventReactive")
+    label = "updates the check boxes for filtering the master")
   
   # observe which series gets selected for the individual series correlation
   # analysis and create the variable input$series. It deafaults to the first
@@ -154,7 +97,7 @@ shinyServer(function(session, input, output) {
                         choices=colnames(rwlRV$datUndated),
                         selected=colnames(rwlRV$datUndated)[1])
     },
-    label = "observe series being selected and update the input box")
+    label = "observe series being selected and update the input box for undated")
   
   # observe which series gets selected for the individual series correlation
   # get the start and end dates for the series. These are used to
@@ -186,13 +129,93 @@ shinyServer(function(session, input, output) {
                         max=maxWin,
                         step=5)
     },
-    label = "observe series being selected and update the window slider")
+    label = "observe series being selected and update the window sliders")
+  ##############################################################
+  #
+  # END observations
+  #
+  ##############################################################
   
-  # back to buisiness
+  
+  ##############################################################
+  # START reactives
+  #
+  # We use reactives for so that calculations (like corr.rwl.seg)
+  # need to be done only once.
+  #
+  ##############################################################
+  
+  
+  
+  # Get the RWL file from the user at the start or use demo data
+  getRWL <- reactive({
+    if (input$useDemoDated) {
+      dat <- read.rwl("data/xDateRtest.rwl")
+      return(dat)
+    }
+    inFile <- input$file1
+    if (is.null(inFile)) {
+      return(NULL)
+    }
+    else{
+      # This might be problematic. What if the user wants a "long" tucson?
+      # But we also don't want to add arguments.
+      dat <- read.rwl(inFile$datapath)
+      return(dat)
+    }
+    
+  })
+  
+  # If the user wants to upload an undated RWL file. Note: the file has dates of 
+  # some sort. But they can be real, arbitrary, etc. They get stripped when the 
+  # floater code is run.
+  getRWLUndated <- reactive({
+    if (input$useDemoUndated) {
+      dat <- read.rwl("data/xDateRtestUndated.rwl")
+      rwlRV$datUndated <- dat
+      return(dat)
+    }
+    inFile <- input$file2
+    if (is.null(inFile)) {
+      return(NULL)
+    }
+    else{
+      dat <- read.rwl(inFile$datapath)
+      rwlRV$datUndated <- dat
+      return(dat)
+    }
+  })
+  
+  # This is the reactive that filters that RWL object.
+  # It waits for an event to occur. Here it waits for 
+  # updateMasterButton to be invoked with the action button.
+  
+  filteredRWL <- eventReactive(
+    eventExpr = {
+      # both these events have to happen to trigger this
+      input$updateMasterButton
+      getRWL()
+    },
+    #handlerExpr ={},# The expression to call whenever eventExpr is invalidated.
+    valueExpr = {
+      # this is what happens if triggered
+      req(getRWL())
+      if(is.null(input$master) || input$master == ""){
+        res <- getRWL()
+      }
+      else {
+        res <- getRWL()[, colnames(getRWL()) %in% input$master]
+      }
+      rwlRV$dat <- res
+      rwlRV$datVault <- res
+    },
+    label = "filteredRWL eventReactive")
+  
   
   # reactive to run corr.rwl.seg with inputs gathered from the user.
   # this is the workhorse function. We produce a plot and a bunch of
   # tables with it, so it makes sense to do this as a reactive.
+  # It's computationally expensive and used in several places.
   
   getCRS <- reactive({
     dat <- rwlRV$dat
@@ -210,6 +233,9 @@ shinyServer(function(session, input, output) {
     
     crs
   })
+  
+  # reactive to run xdate.floater with inputs gathered from the user.
+  # It's computationally expensive and used in several places.
   
   getFloater <- reactive({
     master <- filteredRWL()
@@ -824,7 +850,7 @@ shinyServer(function(session, input, output) {
     else{
       n <- as.numeric(input$nUndated)
     }
-
+    
     ccfObject <- ccf.series.rwl(dat, series = input$series2,
                                 seg.length = input$seg.lengthUndated,
                                 bin.floor = as.numeric(input$bin.floorUndated),
@@ -836,7 +862,7 @@ shinyServer(function(session, input, output) {
                                 make.plot=TRUE)
   })
   
-#############
+  #############
   output$undatedReport <- downloadHandler(
     # For PDF output, change this to ".pdf"
     filename = "undated_series_report.html",
@@ -849,14 +875,14 @@ shinyServer(function(session, input, output) {
       
       # Set up parameters to pass to Rmd document
       undatedParams <- list(seg.length=input$seg.lengthUndated,
-                        bin.floor=input$bin.floorUndated,
-                        n=input$nUndated, 
-                        prewhiten=input$prewhitenUndated, 
-                        pcrit=input$pcritUndated, 
-                        biweight=input$biweightUndated,
-                        method=input$methodUndated,
-                        series=input$series2,
-                        datingNotes=input$datingNotes2)
+                            bin.floor=input$bin.floorUndated,
+                            n=input$nUndated, 
+                            prewhiten=input$prewhitenUndated, 
+                            pcrit=input$pcritUndated, 
+                            biweight=input$biweightUndated,
+                            method=input$methodUndated,
+                            series=input$series2,
+                            datingNotes=input$datingNotes2)
       params <- list(fileName = input$file2$name,
                      floaterObject = getFloater(),
                      undatedParams = undatedParams)
@@ -871,5 +897,5 @@ shinyServer(function(session, input, output) {
     }
   )
   
-  })
+})
 
