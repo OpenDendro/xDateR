@@ -12,9 +12,21 @@ shinyServer(function(session, input, output) {
 
   # Initiate an object (empty now) that will hold the rwl data
   # (and a backup). The advantage of this is that it can be edited 
+  # and saved between tabs
   rwlRV <- reactiveValues()
-  # why is this set here?
-  rwlRV$edits <- NULL
+  # Here are the elements of rwlRV. These don't need to be decalred here
+  # but I want to keep track of what's in the object as a matter of best
+  # practices
+  
+  rwlRV$dated <- NULL           # the dated rwl object
+  rwlRV$undated <- NULL         # the undated rwl object
+  rwlRV$editLog <- NULL         # a string of edits
+  rwlRV$seriesDF <- NULL        # the series being edited from rwlRV$undated. 
+                                # it is formated as a data.frame with years
+  rwlRV$datedNoSeries <- NULL   # A copy of rwlRV$dated with the series being 
+                                # edited removed.
+  rwlRV$datedVault <- NULL      # a copy of the dated rwl object that is not edited
+  rwlRV$undatedVault <- NULL    # a copy of the undated rwl object that is not edited                              
   
   ##############################################################
   #
@@ -79,8 +91,8 @@ shinyServer(function(session, input, output) {
     handlerExpr = {
       updateSelectInput(session = session,
                         inputId = "series",
-                        choices=colnames(rwlRV$dat),
-                        selected=colnames(rwlRV$dat)[1])
+                        choices=colnames(rwlRV$dated),
+                        selected=colnames(rwlRV$dated)[1])
     },
     label = "observe series being selected and update the input box")
   
@@ -94,8 +106,8 @@ shinyServer(function(session, input, output) {
     handlerExpr = {
       updateSelectInput(session = session,
                         inputId = "series2",
-                        choices=colnames(rwlRV$datUndated),
-                        selected=colnames(rwlRV$datUndated)[1])
+                        choices=colnames(rwlRV$undated),
+                        selected=colnames(rwlRV$undated)[1])
     },
     label = "observe series being selected and update the input box for undated")
   
@@ -109,7 +121,7 @@ shinyServer(function(session, input, output) {
       filteredRWL()
     }, 
     handlerExpr = {
-      dat <- rwlRV$dat
+      dat <- rwlRV$dated
       tmp <- summary(dat)
       winBnds <- as.numeric(tmp[tmp$series==input$series,2:3])
       minWin <- round(winBnds[1] + input$lagCCF,-1)
@@ -138,9 +150,10 @@ shinyServer(function(session, input, output) {
   
   
   ##############################################################
+  #
   # START reactives
   #
-  # We use reactives for so that calculations (like corr.rwl.seg)
+  # we use reactives for so that calculations (like corr.rwl.seg)
   # need to be done only once.
   #
   ##############################################################
@@ -172,7 +185,7 @@ shinyServer(function(session, input, output) {
   getRWLUndated <- reactive({
     if (input$useDemoUndated) {
       dat <- read.rwl("data/xDateRtestUndated.rwl")
-      rwlRV$datUndated <- dat
+      rwlRV$undated <- dat
       return(dat)
     }
     inFile <- input$file2
@@ -181,10 +194,11 @@ shinyServer(function(session, input, output) {
     }
     else{
       dat <- read.rwl(inFile$datapath)
-      rwlRV$datUndated <- dat
+      rwlRV$undated <- dat
       return(dat)
     }
   })
+  
   
   # This is the reactive that filters that RWL object.
   # It waits for an event to occur. Here it waits for 
@@ -206,8 +220,8 @@ shinyServer(function(session, input, output) {
       else {
         res <- getRWL()[, colnames(getRWL()) %in% input$master]
       }
-      rwlRV$dat <- res
-      rwlRV$datVault <- res
+      rwlRV$dated <- res
+      rwlRV$datedVault <- res
     },
     label = "filteredRWL eventReactive")
   
@@ -218,7 +232,7 @@ shinyServer(function(session, input, output) {
   # It's computationally expensive and used in several places.
   
   getCRS <- reactive({
-    dat <- rwlRV$dat
+    dat <- rwlRV$dated
     if(input$nCRS=="NULL"){
       n <- NULL
     }
@@ -241,7 +255,7 @@ shinyServer(function(session, input, output) {
     master <- filteredRWL()
     series2get <- input$series2
     if(series2get == "bar") {series2get <- 1}
-    series2date <- rwlRV$datUndated[,series2get]
+    series2date <- rwlRV$undated[,series2get]
     if(input$nUndated=="NULL"){
       n <- NULL
     }
@@ -268,49 +282,42 @@ shinyServer(function(session, input, output) {
   
   ##############################################################
   #
-  # 1st tab -- get the RWL file
+  # 1st tab 
   #
   ##############################################################
   
+  # -- get the RWL report
   output$rwlReport <- renderPrint({
-    #req(input$file1)
     req(filteredRWL())
     rwl.report(filteredRWL())
   })
   
+  # -- plot rwl
   output$rwlPlot <- renderPlot({
-    #req(input$file1)
     req(filteredRWL())
     plot.rwl(filteredRWL(),plot.type = input$rwlPlotType)
   })
   
+  # -- summary
   output$rwlSummary <- renderTable({
-    #req(input$file1)
     req(filteredRWL())
     summary(filteredRWL())
   })
-  ##############################################################
-  #
-  # 1st tab -- report
-  #
-  ##############################################################
+  # -- make report
   output$rwlSummaryReport <- downloadHandler(
     filename = "rwl_summary_report.html",
     content = function(file) {
-      # Copy the report file to a temporary directory before processing it, in
-      # case we don't have write permissions to the current working dir (which
-      # can happen when deployed).
+
       tempReport <- file.path(tempdir(), "report_rwl_describe.Rmd")
       file.copy("report_rwl_describe.Rmd", tempReport, overwrite = TRUE)
       
-      # Set up parameters to pass to Rmd document
-      rwlObject <- rwlRV$dat
+      rwlObject <- rwlRV$dated
       params <- list(fileName = input$file1$name, rwlObject=rwlObject,
                      rwlPlotType=input$rwlPlotType)
       
       # Knit the document, passing in the `params` list, and eval it in a
       # child of the global environment (this isolates the code in the document
-      # from the code in this app).
+      # from the code in this app). Defensive
       rmarkdown::render(tempReport, output_file = file,
                         params = params,
                         envir = new.env(parent = globalenv())
@@ -320,24 +327,22 @@ shinyServer(function(session, input, output) {
   
   ##############################################################
   #
-  # 2nd tab -- plot the results from corr.rwl.seg
+  # 2nd tab 
   #
   ##############################################################
+  
+  # -- plot the results from corr.rwl.seg
   output$crsPlot <- renderPlot({
-    #req(input$file1)
+    
     req(filteredRWL())
     # need to build plot here by hand I think
     crsObject <- getCRS()
     plot(crsObject)
   })
   
-  ##############################################################
-  #
-  # 2nd tab -- make a table of overall correlation by series
-  #
-  ##############################################################
+  # make a table of overall correlation by series 
   output$crsOverall <- renderDT({
-    #req(input$file1)
+    
     req(filteredRWL())
     crsObject <- getCRS()
     overallCor <- round(crsObject$overall,3)
@@ -353,13 +358,8 @@ shinyServer(function(session, input, output) {
                   fontWeight = styleInterval(input$pcritCRS, c('normal', 'bold')))
   })
   
-  ##############################################################
-  #
-  # 2nd tab -- make a table of the avg correlation by bin
-  #
-  ##############################################################
+  # -- make a table of the avg correlation by bin
   output$crsAvgCorrBin <- renderDT({
-    #req(input$file1)
     req(filteredRWL())
     crsObject <- getCRS()
     binNames <- paste(crsObject$bins[,1], "-", crsObject$bins[,2], sep="")
@@ -375,13 +375,9 @@ shinyServer(function(session, input, output) {
                   fontWeight = styleInterval(input$pcritCRS, c('normal', 'bold')))
   })
   
-  ##############################################################
-  #
-  # 2nd tab -- flags
-  #
-  ##############################################################
+  # -- flags
   output$crsFlags <- renderDT({
-    #req(input$file1)
+    
     req(filteredRWL())
     crsObject <- getCRS()
     flags <- crsObject$flags
@@ -401,13 +397,9 @@ shinyServer(function(session, input, output) {
                              lengthChange=FALSE))
   })
   
-  ##############################################################
-  #
-  # 2nd tab -- make a table of the correlation by bin
-  #
-  ##############################################################
+  # -- make a table of the correlation by bin
   output$crsCorrBin <- renderDT({
-    #req(input$file1)
+    
     req(filteredRWL())
     crsObject <- getCRS()
     binNames <- paste(crsObject$bins[,1], "-", crsObject$bins[,2], sep="")
@@ -424,22 +416,13 @@ shinyServer(function(session, input, output) {
                   fontWeight = styleInterval(input$pcritCRS, c('normal', 'bold')))
   })
   
-  ##############################################################
-  #
-  # 2nd tab -- report
-  #
-  ##############################################################
+  # -- report
   output$crsReport <- downloadHandler(
-    # For PDF output, change this to ".pdf"
     filename = "rwl_correlation_report.html",
     content = function(file) {
-      # Copy the report file to a temporary directory before processing it, in
-      # case we don't have write permissions to the current working dir (which
-      # can happen when deployed).
       tempReport <- file.path(tempdir(), "report_rwl_corr.Rmd")
       file.copy("report_rwl_corr.Rmd", tempReport, overwrite = TRUE)
       
-      # Set up parameters to pass to Rmd document
       crsObject <- getCRS()
       crsParams <- list(seg.length=input$seg.lengthCRS,
                         bin.floor=input$bin.floorCRS,
@@ -452,9 +435,6 @@ shinyServer(function(session, input, output) {
                      crsObject = crsObject,
                      crsParams = crsParams)
       
-      # Knit the document, passing in the `params` list, and eval it in a
-      # child of the global environment (this isolates the code in the document
-      # from the code in this app).
       rmarkdown::render(tempReport, output_file = file,
                         params = params,
                         envir = new.env(parent = globalenv())
@@ -464,12 +444,13 @@ shinyServer(function(session, input, output) {
   
   ##############################################################
   #
-  # 3rd tab -- print the flags from last tab
+  # 3rd tab 
   #
   ##############################################################
   
+  # -- print the flags from last tab
   output$flaggedSeries <- renderText({
-    #req(input$file1)
+    
     req(filteredRWL())
     crsObject <- getCRS()
     flags <- crsObject$flags
@@ -494,16 +475,12 @@ shinyServer(function(session, input, output) {
     res
   })
   
-  ##############################################################
-  #
-  # 3rd tab -- plot the results from corr.series.seg
-  #
-  ##############################################################
+  # -- plot the results from corr.series.seg
   output$cssPlot <- renderPlot({
     req(input$series)
-    #req(input$file1)
+    
     req(filteredRWL())
-    dat <- rwlRV$dat
+    dat <- rwlRV$dated
     
     if(input$nCSS=="NULL"){
       n <- NULL
@@ -520,16 +497,12 @@ shinyServer(function(session, input, output) {
     
   })
   
-  ##############################################################
-  #
-  # 3rd tab -- plot the results from ccf.series.rwl
-  #
-  ##############################################################
+  # -- plot the results from ccf.series.rwl
   output$ccfPlot <- renderPlot({
-    #req(input$file1)
+    
     req(filteredRWL())
     req(input$series)
-    dat <- rwlRV$dat
+    dat <- rwlRV$dated
     yrs <- time(dat)
     win <- input$rangeCCF[1]:input$rangeCCF[2]
     dat <- dat[yrs %in% win,]
@@ -547,16 +520,12 @@ shinyServer(function(session, input, output) {
                                 lag.max = input$lagCCF,make.plot=TRUE)
   })
   
-  ##############################################################
-  #
-  # 3rd tab -- plot the results from xskel.ccf.plot
-  #
-  ##############################################################
+  # -- plot the results from xskel.ccf.plot
   output$xskelPlot <- renderPlot({
-    #req(input$file1)
+    
     req(filteredRWL())
     req(input$series)
-    dat <- rwlRV$dat
+    dat <- rwlRV$dated
     
     if(input$nCSS=="NULL"){
       n <- NULL
@@ -575,29 +544,16 @@ shinyServer(function(session, input, output) {
                                   biweight = input$biweightCSS)
   })
   
-  ##############################################################
-  #
-  # 3rd tab -- edit series
-  #
-  ##############################################################
+  # -- edit series
+
   
-  
-  ##############################################################
-  #
-  # 3rd tab -- report
-  #
-  ##############################################################
+  # -- report
   output$cssReport <- downloadHandler(
-    # For PDF output, change this to ".pdf"
     filename = "series_correlation_report.html",
     content = function(file) {
-      # Copy the report file to a temporary directory before processing it, in
-      # case we don't have write permissions to the current working dir (which
-      # can happen when deployed).
       tempReport <- file.path(tempdir(), "report_series.Rmd")
       file.copy("report_series.Rmd", tempReport, overwrite = TRUE)
       
-      # Set up parameters to pass to Rmd document
       cssParams <- list(seg.length=input$seg.lengthCSS,
                         bin.floor=input$bin.floorCSS,
                         n=input$nCSS, 
@@ -612,12 +568,9 @@ shinyServer(function(session, input, output) {
                         datingNotes=input$datingNotes,
                         winCCF = input$rangeCCF[1]:input$rangeCCF[2])
       params <- list(fileName = input$file1$name,
-                     rwlObject = rwlRV$dat,
+                     rwlObject = rwlRV$dated,
                      cssParams = cssParams)
       
-      # Knit the document, passing in the `params` list, and eval it in a
-      # child of the global environment (this isolates the code in the document
-      # from the code in this app).
       rmarkdown::render(tempReport, output_file = file,
                         params = params,
                         envir = new.env(parent = globalenv())
@@ -626,7 +579,7 @@ shinyServer(function(session, input, output) {
   )
   ##############################################################
   #
-  # 4th tab -- edit
+  # 4th tab 
   #
   ##############################################################
   # delete rows
@@ -655,12 +608,12 @@ shinyServer(function(session, input, output) {
       names(tmpSeriesDF)[1] <- input$series
       rownames(tmpSeriesDF) <- seriesDF[,1]
       class(tmpSeriesDF) <- c("rwl", "data.frame")
-      tmpDat <- combine.rwl(rwlRV$datNoSeries,tmpSeriesDF)
+      tmpDat <- combine.rwl(rwlRV$datedNoSeries,tmpSeriesDF)
       # reorder
-      tmpDat <- tmpDat[,names(rwlRV$dat)]
-      rwlRV$dat <- tmpDat
+      tmpDat <- tmpDat[,names(rwlRV$dated)]
+      rwlRV$dated <- tmpDat
       # write an edit log
-      rwlRV$edits <- c(rwlRV$edits,
+      rwlRV$editLog <- c(rwlRV$editLog,
                        paste("Series ", input$series, ". ", "Year ", 
                              rwlRV$seriesDF$Year[row2delIndex], " deleted. ",
                              "Last Year Fix = ",input$deleteRingFixLast,
@@ -700,12 +653,12 @@ shinyServer(function(session, input, output) {
       names(tmpSeriesDF)[1] <- input$series
       rownames(tmpSeriesDF) <- seriesDF[,1]
       class(tmpSeriesDF) <- c("rwl", "data.frame")
-      tmpDat <- combine.rwl(rwlRV$datNoSeries,tmpSeriesDF)
+      tmpDat <- combine.rwl(rwlRV$datedNoSeries,tmpSeriesDF)
       # reorder
-      tmpDat <- tmpDat[,names(rwlRV$dat)]
-      rwlRV$dat <- tmpDat
+      tmpDat <- tmpDat[,names(rwlRV$dated)]
+      rwlRV$dated <- tmpDat
       # write an edit log
-      rwlRV$edits <- c(rwlRV$edits,
+      rwlRV$editLog <- c(rwlRV$editLog,
                        paste("Series ", input$series, ". ", "Year ", 
                              rwlRV$seriesDF$Year[row2addIndex], " inserted with value ",
                              input$insertValue,
@@ -717,9 +670,9 @@ shinyServer(function(session, input, output) {
   # revert rows
   observeEvent(input$revertSeries,{
     req(filteredRWL())
-    rwlRV$dat <- rwlRV$datVault
+    rwlRV$dated <- rwlRV$datedVault
     # write an edit log
-    rwlRV$edits <- "Edits reverted. Log reset."
+    rwlRV$editLog <- "Edits reverted. Log reset."
   })
   
   output$series2edit <- renderText({
@@ -728,7 +681,7 @@ shinyServer(function(session, input, output) {
   
   output$table1 <- renderDataTable({
     req(filteredRWL())
-    dat <- rwlRV$dat
+    dat <- rwlRV$dated
     datNoSeries <- dat
     datNoSeries[,input$series] <- NULL
     series <- dat[,input$series]
@@ -736,8 +689,8 @@ shinyServer(function(session, input, output) {
     seriesDF <- data.frame(Year=time(datNoSeries)[!mask],
                            Value=series[!mask])
     
-    #write to RV fo ease in editing observations
-    rwlRV$datNoSeries <- datNoSeries
+    #write to RV for ease in editing observations
+    rwlRV$datedNoSeries <- datNoSeries
     rwlRV$seriesDF <- seriesDF
     
     datatable(rwlRV$seriesDF,
@@ -752,50 +705,38 @@ shinyServer(function(session, input, output) {
     
   })
   
-  ##############################################################
-  #
-  # 4th tab -- log
-  #
-  ##############################################################
+  # -- log
   output$editLog <- renderPrint({
-    #req(input$file1)
+    
     req(filteredRWL())
-    if(!is.null(rwlRV$edits)){
-      rwlRV$edits  
+    if(!is.null(rwlRV$editLog)){
+      rwlRV$editLog  
     }
   })
-  
+  # -- report
   output$editReport <- downloadHandler(
-    # For PDF output, change this to ".pdf"
     filename = "edits_report.html",
     content = function(file) {
-      # Copy the report file to a temporary directory before processing it, in
-      # case we don't have write permissions to the current working dir (which
-      # can happen when deployed).
       tempReport <- file.path(tempdir(), "report_edits.Rmd")
       file.copy("report_edits.Rmd", tempReport, overwrite = TRUE)
       
-      # Set up parameters to pass to Rmd document
       params <- list(fileName = input$file1$name,
-                     rwlObject = rwlRV$dat,
-                     edits = rwlRV$edits)
+                     rwlObject = rwlRV$dated,
+                     edits = rwlRV$editLog)
       
-      # Knit the document, passing in the `params` list, and eval it in a
-      # child of the global environment (this isolates the code in the document
-      # from the code in this app).
       rmarkdown::render(tempReport, output_file = file,
                         params = params,
                         envir = new.env(parent = globalenv())
       )
     }
   )
-  
+  # -- write rwl file  
   output$downloadRWL <- downloadHandler(
     filename = function() {
       paste(input$file1, "-",Sys.Date(), ".rwl", sep="") 
     },
     content = function(file) {
-      write.tucson(rwl.df=rwlRV$dat, fname=file)
+      write.tucson(rwl.df=rwlRV$dated, fname=file)
     }
   )
   
@@ -804,7 +745,8 @@ shinyServer(function(session, input, output) {
   # 6th tab -- floaters
   #
   ##############################################################
-  
+
+  # -- summary  
   output$floaterText <- renderText({
     req(getRWLUndated())
     req(getFloater())
@@ -834,12 +776,14 @@ shinyServer(function(session, input, output) {
     
   })
   
+  # -- plot
   output$floaterPlot <- renderPlot({
     req(getRWLUndated())
     floaterObject <- getFloater()
     plot.floater(floaterObject)
   })
   
+  # -- ccf plot
   output$ccfPlotUndated <- renderPlot({
     floaterObject <- getFloater()
     series2get <- floaterObject$series.name
@@ -862,18 +806,13 @@ shinyServer(function(session, input, output) {
                                 make.plot=TRUE)
   })
   
-  #############
+  # -- report  
   output$undatedReport <- downloadHandler(
-    # For PDF output, change this to ".pdf"
     filename = "undated_series_report.html",
     content = function(file) {
-      # Copy the report file to a temporary directory before processing it, in
-      # case we don't have write permissions to the current working dir (which
-      # can happen when deployed).
       tempReport <- file.path(tempdir(), "report_undated_series.Rmd")
       file.copy("report_undated_series.Rmd", tempReport, overwrite = TRUE)
       
-      # Set up parameters to pass to Rmd document
       undatedParams <- list(seg.length=input$seg.lengthUndated,
                             bin.floor=input$bin.floorUndated,
                             n=input$nUndated, 
@@ -887,9 +826,6 @@ shinyServer(function(session, input, output) {
                      floaterObject = getFloater(),
                      undatedParams = undatedParams)
       
-      # Knit the document, passing in the `params` list, and eval it in a
-      # child of the global environment (this isolates the code in the document
-      # from the code in this app).
       rmarkdown::render(tempReport, output_file = file,
                         params = params,
                         envir = new.env(parent = globalenv())
