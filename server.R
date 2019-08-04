@@ -27,6 +27,7 @@ shinyServer(function(session, input, output) {
                                 # edited removed.
   rwlRV$datedVault <- NULL      # a copy of the dated rwl object that is not edited
   rwlRV$undatedVault <- NULL    # a copy of the undated rwl object that is not edited                              
+  rwlRV$undated2dated <- NULL   # the undated rwl saved with dates
   
   ##############################################################
   #

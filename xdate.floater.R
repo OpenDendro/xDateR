@@ -108,14 +108,15 @@ xdate.floater <- function(rwl, series, series.name = "Unk", min.overlap=50, n=NU
   #rBest <- floaterCorStats$r[rBest]
   #pBest <- floaterCorStats$p[rBest]
   names(series) <- firstBest:lastBest
-  tmp <- as.rwl(data.frame(series))
-  names(tmp) <- series.name 
+  rwlOut <- as.rwl(data.frame(series))
+  names(rwlOut) <- series.name 
+  class(rwlOut) <- c("rwl", "data.frame")
   # add to new rwl
-  rwlCombined <- combine.rwl(rwl,tmp)
-  
+  rwlCombined <- combine.rwl(rwl,rwlOut)
   if(return.rwl){
-    res <- list(series.name,floaterCorStats,floaterReport,rwlCombined)
-    names(res) <- c("series.name","floaterCorStats","floaterReport","rwlCombined")
+    res <- list(series.name,floaterCorStats,floaterReport,rwlCombined, rwlOut)
+    names(res) <- c("series.name","floaterCorStats","floaterReport",
+                    "rwlCombined", "rwlOut")
   }
   res
 }
