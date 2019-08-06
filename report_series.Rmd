@@ -14,7 +14,28 @@ library(kableExtra)
 cssParams <- params$cssParams
 ```
 
-The original file passed in to the xDateR app was `r params$fileName`. The series selected is `r cssParams$series`. The series in the master are:
+```{r,echo=FALSE}
+if(is.null(params$fileName)){
+  fname <- "DemoData.rwl"
+}
+
+if(!is.null(params$fileName)){
+  fname <- params$fileName
+  }
+
+if(cssParams$datingNotes == ""){
+  cssParams$datingNotes <- "No dating notes entered."
+}
+
+```
+
+### File: `r fname`
+
+#### Selected Series: 
+
+**`r cssParams$series`**
+
+#### Remaining Series in Master:
 
 ```{r,echo=FALSE}
 dat <- params$rwlObject
@@ -32,6 +53,7 @@ res2 <- kable(res, format="html") %>%
 gsub("<thead>.*</thead>", "", res2)
 ```
 
+#### Parameters:
 
 ```{r,echo=FALSE}
 tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
@@ -45,7 +67,7 @@ tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
                            cssParams$winCenter,
                            cssParams$winWidth,
                            cssParams$lagCCF))
-kable(tab2,caption="Paramaters") %>%
+kable(tab2) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
@@ -67,7 +89,7 @@ css <- corr.series.seg(dat, series = cssParams$series,
 ```
 
 
-```{r, echo=TRUE}
+```{r, echo=FALSE}
 yrs <- time(dat)
 ccfObject <- ccf.series.rwl(dat[yrs %in% cssParams$winCCF,], 
                             series = cssParams$series, 
@@ -89,5 +111,44 @@ ccfObject <- ccf.series.rwl(dat[yrs %in% cssParams$winCCF,],
                                  biweight = cssParams$biweight)
 ```
 
-###Dating Notes
+### Dating Notes
 `r cssParams$datingNotes`
+
+### R Code
+
+```
+library(dplR)
+dat <- read.rwl("`r fname`")
+css <- corr.series.seg(dat, series = "`r cssParams$series`", 
+                       seg.length = `r cssParams$seg.length`, 
+                       bin.floor = `r cssParams$bin.floor`,
+                       n = `r cssParams$n`,
+                       prewhiten = `r cssParams$prewhiten`, 
+                       pcrit = `r cssParams$pcrit`,
+                       biweight = `r cssParams$biweight`, 
+                       method = "`r cssParams$method`",
+                       make.plot=TRUE)
+                       
+yrs <- time(dat)
+win <- `r min(cssParams$winCCF)`:`r max(cssParams$winCCF)`
+ccfObject <- ccf.series.rwl(dat[yrs %in% win,], 
+                            series = "`r cssParams$series`", 
+                            seg.length = `r cssParams$seg.length`, 
+                            bin.floor = `r cssParams$bin.floor`,
+                            n = `r cssParams$n`,
+                            prewhiten = `r cssParams$prewhiten`, 
+                            pcrit = `r cssParams$pcrit`,
+                            biweight = `r cssParams$biweight`,
+                            method = "`r cssParams$method`",
+                            lag.max = `r cssParams$lagCCF`,
+                            make.plot=TRUE)
+wCenter <- `r cssParams$winCenter` - `r (cssParams$winWidth/2)`
+xskeObject <- xskel.ccf.plot(dat, 
+                             series = "`r cssParams$series`", 
+                             win.start = wCenter,
+                             win.width = `r cssParams$winWidth`,
+                             n = `r cssParams$n`,
+                             prewhiten = `r cssParams$prewhiten`,
+                             biweight = `r cssParams$biweight`)                            
+
+```

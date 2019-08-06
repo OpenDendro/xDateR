@@ -34,13 +34,13 @@ ui <- tagList(
                                      h5("Undated Series (Optional)"),
                                      fileInput(inputId="file2", 
                                                label=NULL,
-                        multiple = FALSE,
-                           accept = c("text/plain",
-                                      ".rwl",
-                                      ".raw",
-                                      ".txt")),
-                 checkboxInput(inputId="useDemoUndated", label="Or use example (undated) data",
-                               value=FALSE)
+                                               multiple = FALSE,
+                                               accept = c("text/plain",
+                                                          ".rwl",
+                                                          ".raw",
+                                                          ".txt")),
+                                     checkboxInput(inputId="useDemoUndated", label="Or use example (undated) data",
+                                                   value=FALSE)
                  ))
                ),
                
@@ -51,6 +51,7 @@ ui <- tagList(
              )
     ),
     # 2nd tab ----
+    
     tabPanel(title="Describe RWL Data",value="tab2",
              # Sidebar layout with input and output definitions
              includeMarkdown("text_describe.rmd"),
@@ -222,6 +223,7 @@ ui <- tagList(
              hr(),
              downloadButton("cssReport", "Generate report")
     ),
+    # 5th tab ----
     tabPanel(title="Edit Series",value="tab5",
              sidebarLayout(
                sidebarPanel(
@@ -263,8 +265,8 @@ ui <- tagList(
                  h5("Undo Changes"),
                  actionButton("revertSeries", "Revert Changes"),
                  hr(),
-                 h5("Download/Save"),
-                 downloadButton('downloadRWL', 'Downlaod rwl object (.rwl)'),
+                 h5("Save Edited File"),
+                 downloadButton('downloadRWL', 'Download rwl object (.rwl)'),
                  helpText("The rwl file is writen in tucson/decadal format readable 
                                      by standard dendro programs.(e.g., read.rwl() in 
                                      dplR)."),
@@ -281,7 +283,7 @@ ui <- tagList(
                  width=7)
              )
     ),
-    #############################################
+    # 6th tab ----
     tabPanel(title="Undated Series",value="tab6",
              includeMarkdown("text_undated.rmd"),
              fluidRow(
@@ -289,7 +291,7 @@ ui <- tagList(
                       selectInput(inputId = "series2",
                                   label = "Choose undated series",
                                   choices = c("bar"))
-                      ),
+               ),
                column(8,
                       h5("Floater Report"),
                       htmlOutput("floaterText")
@@ -312,7 +314,7 @@ ui <- tagList(
                ),
                column(3,
                       sliderInput(inputId="minOverlapUndated", label="Minimim Overlap", 
-                                   value=50,min=10,max=200,step=10)
+                                  value=50,min=10,max=200,step=10)
                ),
                column(2)
              ),

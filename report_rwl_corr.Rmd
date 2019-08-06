@@ -14,9 +14,21 @@ crsObject <- params$crsObject
 crsParams <- params$crsParams
 ```
 
-The original file passed in to the xDateR app was `r params$fileName`.
 
-Parameters used in `corr.rwl.seg()`:
+```{r,echo=FALSE}
+if(is.null(params$fileName)){
+  fname <- "DemoData.rwl"
+}
+
+if(!is.null(params$fileName)){
+  fname <- params$fileName
+  }
+
+```
+
+### File: `r fname`
+
+#### Parameters:
 
 ```{r,echo=FALSE}
 tab1 <- data.frame(Parameter=c("seg.length","bin.floor","n",
@@ -25,11 +37,10 @@ tab1 <- data.frame(Parameter=c("seg.length","bin.floor","n",
                            crsParams$n, crsParams$prewhiten, 
                            crsParams$pcrit, crsParams$biweight,
                            crsParams$method))
-kable(tab1,caption="corr.rwl.seg() params")
+kable(tab1) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
-
-`corr.rwl.seg()` plot:
 
 ```{r,echo=FALSE}
 plot(crsObject)
@@ -98,4 +109,24 @@ if(!flagsLogical){
                              lengthChange=FALSE)) %>%
       formatStyle(columns=-1, 
                   fontWeight = styleInterval(crsObject$pcrit, c('normal', 'bold')))
+```
+
+
+### R Code
+```
+library(dplR)
+dat <- read.rwl("`r fname`")
+crs <- corr.rwl.seg(dat, 
+                    seg.length = `r crsObject$seg.length`, 
+                    bin.floor = `r crsParams$bin.floor`,
+                    n = `r crsParams$n`,
+                    prewhiten = `r crsParams$prewhiten`, 
+                    pcrit = `r crsParams$pcrit`,
+                    biweight = `r crsParams$biweight`, 
+                    method = "`r crsParams$method`",
+                    make.plot=TRUE)
+# data in the tables above are available in the 
+# crs object via the list elements. e.g.
+str(crs)
+crs$overall
 ```

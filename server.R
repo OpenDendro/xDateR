@@ -9,7 +9,7 @@ source("xdate.floater.R")
 shinyServer(function(session, input, output) {
   
   # Declare a few things
-
+  
   # Initiate an object (empty now) that will hold the rwl data
   # (and a backup). The advantage of this is that it can be edited 
   # and saved between tabs
@@ -21,14 +21,21 @@ shinyServer(function(session, input, output) {
   rwlRV$dated <- NULL           # the dated rwl object
   rwlRV$undated <- NULL         # the undated rwl object
   rwlRV$editLog <- NULL         # a string of edits
+  rwlRV$editDF <- NULL          # a data.frame of edits
   rwlRV$seriesDF <- NULL        # the series being edited from rwlRV$undated. 
-                                # it is formated as a data.frame with years
+  # it is formated as a data.frame with years
   rwlRV$datedNoSeries <- NULL   # A copy of rwlRV$dated with the series being 
-                                # edited removed.
+  # edited removed.
   rwlRV$datedVault <- NULL      # a copy of the dated rwl object that is not edited
   rwlRV$undatedVault <- NULL    # a copy of the undated rwl object that is not edited                              
   rwlRV$undated2dated <- NULL   # the undated rwl saved with dates
   
+  
+  rwlRV$editDF <- data.frame(series=NULL,
+                             year = NULL,
+                             value = NULL,
+                             action = NULL,
+                             fixLast = NULL)
   ##############################################################
   #
   # START observations
@@ -308,7 +315,7 @@ shinyServer(function(session, input, output) {
   output$rwlSummaryReport <- downloadHandler(
     filename = "rwl_summary_report.html",
     content = function(file) {
-
+      
       tempReport <- file.path(tempdir(), "report_rwl_describe.Rmd")
       file.copy("report_rwl_describe.Rmd", tempReport, overwrite = TRUE)
       
@@ -432,7 +439,7 @@ shinyServer(function(session, input, output) {
                         pcrit=input$pcritCRS, 
                         biweight=input$biweightCRS,
                         method=input$methodCRS)
-      params <- list(fileName = input$file2$name,
+      params <- list(fileName = input$file1$name,
                      crsObject = crsObject,
                      crsParams = crsParams)
       
@@ -546,7 +553,7 @@ shinyServer(function(session, input, output) {
   })
   
   # -- edit series
-
+  
   
   # -- report
   output$cssReport <- downloadHandler(
@@ -615,10 +622,18 @@ shinyServer(function(session, input, output) {
       rwlRV$dated <- tmpDat
       # write an edit log
       rwlRV$editLog <- c(rwlRV$editLog,
-                       paste("Series ", input$series, ". ", "Year ", 
-                             rwlRV$seriesDF$Year[row2delIndex], " deleted. ",
-                             "Last Year Fix = ",input$deleteRingFixLast,
-                             sep=""))
+                         paste("Series ", input$series, ". ", "Year ", 
+                               rwlRV$seriesDF$Year[row2delIndex], " deleted. ",
+                               "Last Year Fix = ",input$deleteRingFixLast,
+                               sep=""))
+      tmpEditDF <- data.frame(series=input$series,
+                              year = rwlRV$seriesDF$Year[row2delIndex],
+                              value = NA,
+                              action = "delete.ring",
+                              fixLast = input$deleteRingFixLast)
+      rwlRV$editDF <- rbind(rwlRV$editDF,
+                            tmpEditDF)
+      
     }
   })
   
@@ -660,11 +675,19 @@ shinyServer(function(session, input, output) {
       rwlRV$dated <- tmpDat
       # write an edit log
       rwlRV$editLog <- c(rwlRV$editLog,
-                       paste("Series ", input$series, ". ", "Year ", 
-                             rwlRV$seriesDF$Year[row2addIndex], " inserted with value ",
-                             input$insertValue,
-                             ". Last Year Fix = ",input$insertRingFixLast,
-                             sep=""))
+                         paste("Series ", input$series, ". ", "Year ", 
+                               rwlRV$seriesDF$Year[row2addIndex], " inserted with value ",
+                               input$insertValue,
+                               ". Last Year Fix = ",input$insertRingFixLast,
+                               sep=""))
+      tmpEditDF <- data.frame(series=input$series,
+                              year = rwlRV$seriesDF$Year[row2addIndex],
+                              value = input$insertValue,
+                              action = "insert.ring",
+                              fixLast = input$deleteRingFixLast)
+      
+      rwlRV$editDF <- rbind(rwlRV$editDF,
+                            tmpEditDF)
     }
   })
   
@@ -674,6 +697,11 @@ shinyServer(function(session, input, output) {
     rwlRV$dated <- rwlRV$datedVault
     # write an edit log
     rwlRV$editLog <- "Edits reverted. Log reset."
+    rwlRV$editDF <- data.frame(series=NULL,
+                               year = NULL,
+                               value = NULL,
+                               action = NULL,
+                               fixLast = NULL)
   })
   
   output$series2edit <- renderText({
@@ -708,7 +736,6 @@ shinyServer(function(session, input, output) {
   
   # -- log
   output$editLog <- renderPrint({
-    
     req(filteredRWL())
     if(!is.null(rwlRV$editLog)){
       rwlRV$editLog  
@@ -722,8 +749,8 @@ shinyServer(function(session, input, output) {
       file.copy("report_edits.Rmd", tempReport, overwrite = TRUE)
       
       params <- list(fileName = input$file1$name,
-                     rwlObject = rwlRV$dated,
-                     edits = rwlRV$editLog)
+                     editLog = rwlRV$editLog,
+                     editDF = rwlRV$editDF)
       
       rmarkdown::render(tempReport, output_file = file,
                         params = params,
@@ -746,7 +773,7 @@ shinyServer(function(session, input, output) {
   # 6th tab -- floaters
   #
   ##############################################################
-
+  
   # -- summary  
   output$floaterText <- renderText({
     req(getRWLUndated())

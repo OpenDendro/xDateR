@@ -9,10 +9,17 @@ params:
 ---
 
 ```{r,echo=FALSE}
-library(DT)
+if(is.null(params$fileName)){
+  fname <- "DemoData.rwl"
+}
+
+if(!is.null(params$fileName)){
+  fname <- params$fileName
+  }
+
 ```
 
-The original file passed in to the xDateR app was `r params$fileName`.
+### File: `r fname`
 
 ```{r,echo=FALSE}
 rwl.report(params$rwlObject)
@@ -24,4 +31,14 @@ plot.rwl(params$rwlObject,plot.type = params$rwlPlotType)
 
 ```{r,echo=FALSE}
 summary(params$rwlObject)
+```
+
+
+### R Code
+```
+library(dplR)
+dat <- read.rwl("`r fname`")
+rwl.report(dat)
+plot.rwl(dat,plot.type = "`r params$rwlPlotType`")
+summary(dat)
 ```

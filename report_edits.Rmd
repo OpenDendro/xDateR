@@ -3,14 +3,65 @@ title: "Report: Edits Log"
 output: html_document
 params:
   fileName: NA
-  rwlObject: NA
-  edits: NA
+  editLog: NA
+  editDF: NA
 ---
 
 
-The original file passed in to the xDateR app was `r params$fileName`. 
+```{r,echo=FALSE}
+if(is.null(params$fileName)){
+  fname <- "DemoData.rwl"
+}
 
-```{r} 
-params$edits
+if(!is.null(params$fileName)){
+  fname <- params$fileName
+  }
+
 ```
 
+### File: `r fname`
+
+### Log
+```{r} 
+params$editLog
+```
+
+### R Code
+```{r, echo=TRUE} 
+res <- list()
+for(i in 1:nrow(params$editDF)){
+  
+  if(params$editDF$action[i] == "delete.ring"){
+    res[i] <- paste("dat$",
+                    params$editDF$series[i],
+                    " <- delete.ring(rw.vec = dat$",
+                    params$editDF$series[i], 
+                    ", rw.vec.yrs = time(dat), year = ",
+                    params$editDF$year[i],
+                    ", fix.last=",
+                    params$editDF$fixLast[i],
+                    ")", sep="")
+  }
+  if(params$editDF$action[i] == "insert.ring"){
+    res[i] <- paste("dat$",
+                    params$editDF$series[i],
+                    " <- insert.ring(rw.vec = dat$",
+                    params$editDF$series[i], 
+                    ", rw.vec.yrs = time(dat), year = ",
+                    params$editDF$year[i],
+                    ", ring.value=",
+                    params$editDF$value[i],
+                    ", fix.last=",
+                    params$editDF$fixLast[i],
+                    ")", sep="")
+  }
+}
+```
+
+```
+library(dplR)
+dat <- read.rwl("`r fname`")
+```
+```{r} 
+res
+```
