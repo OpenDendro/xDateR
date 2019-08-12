@@ -7,6 +7,8 @@ params:
   crsParams: NA
 ---
 
+ 
+
 ```{r,echo=FALSE}
 library(DT)
 library(knitr)
@@ -28,7 +30,7 @@ if(!is.null(params$fileName)){
 
 ### File: `r fname`
 
-#### Parameters:
+#### Arguments:
 
 ```{r,echo=FALSE}
 tab1 <- data.frame(Parameter=c("seg.length","bin.floor","n",
@@ -42,7 +44,7 @@ kable(tab1) %>%
 ```
 
 
-```{r,echo=FALSE}
+```{r,echo=FALSE, fig.width=10, fig.height=8}
 plot(crsObject)
 ```
 

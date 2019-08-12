@@ -13,7 +13,6 @@ xdate.floater <- function(rwl, series, series.name = "Unk", min.overlap=50, n=NU
   w <- options(warn = -1)
   on.exit(options(w))
   
-  
   ## Normalize
   tmp <- dplR:::normalize.xdate(rwl, series, n, prewhiten, biweight)
   master <- tmp$master
@@ -45,6 +44,7 @@ xdate.floater <- function(rwl, series, series.name = "Unk", min.overlap=50, n=NU
   # and the series can be impacted by the nomalizing (e.g., hanning, prewhiten). 
   # The ends can't be. So crawl through backwards and calc dates that way
   crawl <- (nx+(ny-min.overlap)):(min.overlap)
+  print(head(crawl))
   edgeCounter <- 0
   for(i in crawl){
     if(i > nx){
@@ -53,7 +53,8 @@ xdate.floater <- function(rwl, series, series.name = "Unk", min.overlap=50, n=NU
       tmp <- cor.test(x[xInd],y[yInd], method = method2,alternative = "greater")
       rOut[i] <- tmp$estimate
       pOut[i] <- tmp$p.val
-      # the dating here is weird. The end date is going to be the max of xInd plus the overlap off the edge.
+      # The dating here is weird. The end date is going to be the max of 
+      # xInd plus the overlap off the edge.
       maxYrsOut[i] <- max(yrs[xInd]) + ny - min.overlap + edgeCounter
       edgeCounter <- edgeCounter - 1
       minYrsOut[i] <- maxYrsOut[i] - nSeries + 1
@@ -87,7 +88,10 @@ xdate.floater <- function(rwl, series, series.name = "Unk", min.overlap=50, n=NU
   names(floaterCorStats) <- c("first","last","r","p","n")
   mask <- rowSums(is.na(floaterCorStats))==0
   floaterCorStats <- floaterCorStats[mask,]
-  
+  # trim so end year can't be in future. This is easier than trying to
+  # redo the indexing.
+  thisYr <- as.numeric(format(Sys.time(), "%Y"))
+  floaterCorStats <- floaterCorStats[floaterCorStats$last <= thisYr,]  
   # data for output report
   floaterReport <- c(minTimeRWL = min(time(rwl)),
                      maxTimeRWL = max(time(rwl)),

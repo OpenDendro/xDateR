@@ -3,6 +3,7 @@ library(rmarkdown)
 library(dplR)
 library(DT)
 
+
 source("xdate.floater.R")  
 
 # Server logic
@@ -684,7 +685,7 @@ shinyServer(function(session, input, output) {
                               year = rwlRV$seriesDF$Year[row2addIndex],
                               value = input$insertValue,
                               action = "insert.ring",
-                              fixLast = input$deleteRingFixLast)
+                              fixLast = input$insertRingFixLast)
       
       rwlRV$editDF <- rbind(rwlRV$editDF,
                             tmpEditDF)
