@@ -89,10 +89,6 @@ ui <- tagList(
              ),
              fluidRow(
                column(4,
-                      # checkboxGroupInput(inputId = "master", 
-                      #                    inline = TRUE,
-                      #                    label = "Filter series",
-                      #                    choices = c("")),
                       awesomeCheckboxGroup(inputId = "master", 
                                            inline = TRUE,
                                            label = "Filter series",
@@ -123,6 +119,7 @@ ui <- tagList(
              fluidRow(
                hr(),
                h5("Correlation Overview"),
+               p("Significant correlations are in **bold**"),
                column(4,
                       DTOutput("crsOverall")),
                column(4,
@@ -293,6 +290,10 @@ ui <- tagList(
     # 6th tab ----
     tabPanel(title="Undated Series",value="tab6",
              includeMarkdown("text_undated.rmd"),
+             hr(),
+             h5("RWL Report"),
+             verbatimTextOutput("rwlReport2"),
+             hr(),
              h5("Best Overall Dating for Series"),
              plotOutput("floaterPlot"),
              fluidRow(

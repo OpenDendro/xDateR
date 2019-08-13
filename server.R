@@ -811,6 +811,12 @@ shinyServer(function(session, input, output) {
   })
   
   # -- plot
+  # -- get the RWL report
+  output$rwlReport2 <- renderPrint({
+    req(getRWLUndated())
+    rwl.report(getRWLUndated())
+  })
+  
   output$floaterPlot <- renderPlot({
     req(getRWLUndated())
     floaterObject <- getFloater()
