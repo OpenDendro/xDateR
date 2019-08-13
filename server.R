@@ -2,7 +2,7 @@ library(shiny)
 library(rmarkdown)
 library(dplR)
 library(DT)
-
+library(shinyWidgets)
 
 source("xdate.floater.R")  
 
@@ -30,7 +30,7 @@ shinyServer(function(session, input, output) {
   rwlRV$datedVault <- NULL      # a copy of the dated rwl object that is not edited
   rwlRV$undatedVault <- NULL    # a copy of the undated rwl object that is not edited                              
   rwlRV$undated2dated <- NULL   # the undated rwl saved with dates
-  
+  rwlRV$dateLog <- NULL         # a string of edits for undated series
   
   rwlRV$editDF <- data.frame(series=NULL,
                              year = NULL,
@@ -57,7 +57,7 @@ shinyServer(function(session, input, output) {
   
   # When the dated RWL file is read in: 
   # 1. show all the tabs but the floater tab, and
-  # 2. show the upload box for the flaoters
+  # 2. show the upload box for the floaters
   observeEvent({getRWL()},
                {
                  toggle(selector = "#navbar li a[data-value=tab2]")
@@ -83,10 +83,15 @@ shinyServer(function(session, input, output) {
   observeEvent(
     eventExpr = getRWL(), 
     handlerExpr = {
-      updateCheckboxGroupInput(session = session, inline = TRUE,
-                               inputId = "master",
-                               choices=colnames(getRWL()),
-                               selected=colnames(getRWL()))
+      # updateCheckboxGroupInput(session = session, inline = TRUE,
+      #                          inputId = "master",
+      #                          choices=colnames(getRWL()),
+      #                          selected=colnames(getRWL()))
+      updateAwesomeCheckboxGroup(session = session, inline = TRUE,
+                                 inputId = "master",
+                                 choices=colnames(getRWL()),
+                                 selected=colnames(getRWL()),
+                                 status = "primary")
     },
     label = "updates the check boxes for filtering the master")
   
@@ -835,6 +840,84 @@ shinyServer(function(session, input, output) {
                                 make.plot=TRUE)
   })
   
+  # -- if dates are saved
+  
+  observeEvent(input$saveDates,{
+    req(getRWLUndated())
+    req(getFloater())
+    floaterObject <- getFloater()
+    floaterCorStats <- floaterObject$floaterCorStats
+    rBest <- which.max(floaterCorStats$r)
+    firstBest <- floaterCorStats$first[rBest]
+    lastBest <- floaterCorStats$last[rBest]
+    # write the dated series to rwlRV. But first check that
+    # rwlRV$undated2dated is NULL.
+    # if it is, then write the dated rwl object and a message in the log
+    # If it's not null do the same but only if the user hasn't already tried
+    # to save those dates already.
+    
+    if(is.null(rwlRV$undated2dated)){
+      rwlRV$dateLog <- c(rwlRV$dateLog,
+                         paste("Series ", floaterObject$series.name,
+                               " saved with dates ", firstBest, " to ", 
+                               lastBest, ".", sep=""))
+      rwlRV$undated2dated <- floaterObject$rwlOut  
+    }
+    else{
+      # it's easy for the user to save dates twice I think.
+      # so this is a check that makes that harmless and warns them
+      if(input$series2 %in% names(rwlRV$undated2dated)){
+        rwlRV$dateLog <- c(rwlRV$dateLog,
+                           paste("Series ", floaterObject$series.name,
+                                 " was already saved.",sep=""))
+      }
+      else{
+        rwlRV$dateLog <- c(rwlRV$dateLog,
+                           paste("Series ", floaterObject$series.name,
+                                 " saved with dates ", firstBest, " to ", 
+                                 lastBest, ".", sep=""))
+        rwlRV$undated2dated <- combine.rwl(rwlRV$undated2dated,
+                                         floaterObject$rwlOut)
+      }
+    }
+  })
+  
+  # revert dates
+  observeEvent(input$removeDates,{
+    req(getRWLUndated())
+    req(getFloater())
+    rwlRV$undated2dated <- NULL
+    # write an edit log
+    rwlRV$dateLog <- "Dates removed for all undated series. Log reset."
+  })
+  
+  # -- log
+  output$dateLog <- renderPrint({
+    req(getRWLUndated())
+    req(getFloater())
+    if(!is.null(rwlRV$dateLog)){
+      rwlRV$dateLog  
+    }
+  })
+  
+  # -- write rwl
+  # figure out how to grey out if rwlRV$undated2dated is NULL?
+  output$downloadUndatedRWL <- downloadHandler(
+    filename = function() {
+      paste(input$file2, "-",Sys.Date(), ".rwl", sep="") 
+    },
+    content = function(file) {
+      if(input$appendMaster){
+        tmp <- combine.rwl(rwlRV$undated2dated,filteredRWL())
+      }
+      else{
+        tmp <- rwlRV$undated2dated
+      }
+      write.tucson(rwl.df=tmp, fname=file)
+    }
+  )
+  
+  
   # -- report  
   output$undatedReport <- downloadHandler(
     filename = "undated_series_report.html",
@@ -850,8 +933,10 @@ shinyServer(function(session, input, output) {
                             biweight=input$biweightUndated,
                             method=input$methodUndated,
                             series=input$series2,
-                            datingNotes=input$datingNotes2)
-      params <- list(fileName = input$file2$name,
+                            datingNotes=input$undatingNotes,
+                            dateLog = rwlRV$dateLog)
+      params <- list(fileName1 = input$file1ci$name,
+                     fileName2 = input$file2$name,
                      floaterObject = getFloater(),
                      undatedParams = undatedParams)
       

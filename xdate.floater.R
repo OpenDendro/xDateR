@@ -44,7 +44,6 @@ xdate.floater <- function(rwl, series, series.name = "Unk", min.overlap=50, n=NU
   # and the series can be impacted by the nomalizing (e.g., hanning, prewhiten). 
   # The ends can't be. So crawl through backwards and calc dates that way
   crawl <- (nx+(ny-min.overlap)):(min.overlap)
-  print(head(crawl))
   edgeCounter <- 0
   for(i in crawl){
     if(i > nx){

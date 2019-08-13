@@ -2,7 +2,8 @@
 title: "Report: Individual Series Correlations"
 output: html_document
 params:
-  fileName: NA
+  fileName1: NA
+  fileName2: NA
   floaterObject: NA
   undatedParams: NA
 ---
@@ -20,10 +21,35 @@ lastBest <- floaterCorStats$last[rBest]
 rBest <- floaterCorStats$r[rBest]
 pBest <- floaterCorStats$p[rBest]
 
-fname <- ifelse(is.null(params$fileName),yes = "Demo Data",no = params$fileName)
+fname1 <- ifelse(is.null(params$fileName1),yes = "Demo Data",no = params$fileName1)
+fname2 <- ifelse(is.null(params$fileName2),yes = "Demo Data",no = params$fileName2)
 ```
 
-The original file passed in to the xDateR app was `r fname`. The series selected is `r floaterObject$series.name`. 
+### Date: `r Sys.Date()`
+
+### Dated File: `r fname1`
+
+### Undated File: `r fname2`
+
+#### Selected Series: `r floaterObject$series.name`
+
+#### Arguments:
+
+```{r,echo=FALSE}
+tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
+                               "prewhiten","pcrit","biweight",
+                               "method"),
+                   Value=c(undatedParams$seg.length,
+                           undatedParams$bin.floor,
+                           undatedParams$n, 
+                           undatedParams$prewhiten, 
+                           undatedParams$pcrit, 
+                           undatedParams$biweight,
+                           undatedParams$method))
+kable(tab2) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
 
 ###Floater Report
 Series Name: `r floaterObject$series.name` 
@@ -61,3 +87,7 @@ ccfObject <- ccf.series.rwl(dat,
 ###Dating Notes
 
 `r undatedParams$datingNotes`
+
+###R Code
+
+Reproducible R code is not available yet. The crossdating function `xdate.floater` will be included in the next `dplR` release.

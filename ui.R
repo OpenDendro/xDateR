@@ -2,6 +2,9 @@ library(shiny)
 library(dplR)
 library(DT)
 library(shinyjs)
+library(shinyWidgets)
+
+
 
 ui <- tagList(
   useShinyjs(),
@@ -39,7 +42,7 @@ ui <- tagList(
                                                           ".rwl",
                                                           ".raw",
                                                           ".txt")),
-                                     checkboxInput(inputId="useDemoUndated", label="Or use example (undated) data",
+                                     checkboxInput(inputId="useDemoUndated", label="Or use example data",
                                                    value=FALSE)
                  ))
                ),
@@ -70,7 +73,7 @@ ui <- tagList(
              downloadButton("rwlSummaryReport", "Generate report")
     ),
     # 3rd tab ----
-    tabPanel(title="Correlations between Series", value="tab3",
+    tabPanel(title="Correlations Between Series", value="tab3",
              includeMarkdown("text_rwl_correlation.rmd"),
              h5("Correlation by Series and Segment"),
              plotOutput("crsPlot"),
@@ -86,10 +89,14 @@ ui <- tagList(
              ),
              fluidRow(
                column(4,
-                      checkboxGroupInput(inputId = "master", 
-                                         inline = TRUE,
-                                         label = "Filter series",
-                                         choices = c("")),
+                      # checkboxGroupInput(inputId = "master", 
+                      #                    inline = TRUE,
+                      #                    label = "Filter series",
+                      #                    choices = c("")),
+                      awesomeCheckboxGroup(inputId = "master", 
+                                           inline = TRUE,
+                                           label = "Filter series",
+                                           choices = c("")),
                       actionButton(inputId="updateMasterButton", 
                                    label="Update", 
                                    class = "btn-primary",
@@ -286,21 +293,17 @@ ui <- tagList(
     # 6th tab ----
     tabPanel(title="Undated Series",value="tab6",
              includeMarkdown("text_undated.rmd"),
-             fluidRow(
-               column(4,
-                      selectInput(inputId = "series2",
-                                  label = "Choose undated series",
-                                  choices = c("bar"))
-               ),
-               column(8,
-                      h5("Floater Report"),
-                      htmlOutput("floaterText")
-               )
-             ),
              h5("Best Overall Dating for Series"),
              plotOutput("floaterPlot"),
              fluidRow(
-               column(2),
+               column(1),
+               column(5,
+                      selectInput(inputId = "series2",
+                                  label = "Choose undated series",
+                                  choices = c("bar")),
+                      sliderInput(inputId="minOverlapUndated", label="Minimim Overlap", 
+                                  value=50,min=10,max=200,step=10)
+               ),
                column(2,
                       checkboxInput(inputId="prewhitenUndated", label="Prewhiten",value=TRUE),
                       checkboxInput(inputId="biweightUndated", label="Biweight",value=TRUE)),
@@ -312,11 +315,7 @@ ui <- tagList(
                                   choices=c("pearson", "kendall", "spearman"),
                                   selected = "spearman")
                ),
-               column(3,
-                      sliderInput(inputId="minOverlapUndated", label="Minimim Overlap", 
-                                  value=50,min=10,max=200,step=10)
-               ),
-               column(2)
+               column(1)
              ),
              hr(),
              plotOutput("ccfPlotUndated"),
@@ -338,12 +337,42 @@ ui <- tagList(
                column(2)
              ),
              hr(),
-             textAreaInput(inputId="datingNotes2", 
-                           label="Dating notes",
-                           value="",width="600px",height = "400px",
-                           placeholder="Notes will be saved if you generate a report."),
+             fluidRow(
+               column(1),
+               column(5,
+                      fluidRow(
+                        h5("Floater Report"),
+                        htmlOutput("floaterText")
+                      ),
+                      fluidRow(
+                        hr(),
+                        actionButton("saveDates", "Save Dates"),
+                        actionButton("removeDates", "Revert")
+                      ),
+                      fluidRow(
+                        hr(),
+                        h5("Log"),
+                        verbatimTextOutput("dateLog")
+                      )
+               ),
+               column(5,
+                      textAreaInput(inputId="undatingNotes", 
+                                    label="Dating notes",
+                                    value="",width="600px",height = "400px",
+                                    placeholder="Notes will be saved if you generate a report.")
+               ),
+               column(1)
+             ),
              hr(),
-             #p("Add start and end dates to each series and save to RWL"),
+             h5("Save Dated Series to File"),
+             downloadButton('downloadUndatedRWL', 'Download dated rwl object (.rwl)'),
+             checkboxInput(inputId="appendMaster", label="Append dated rwl?",
+                           value=FALSE),
+             helpText("The rwl file contains any series where dates were assigned above. 
+                       The series from the dated (master) rwl
+                      can optionally be included in the output file as well.
+                      The file is writen in tucson/decadal format readable by standard dendro 
+                      programs.(e.g., read.rwl() in dplR)."),
              hr(),
              downloadButton("undatedReport", "Generate report")
              

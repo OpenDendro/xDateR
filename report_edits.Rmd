@@ -19,6 +19,8 @@ if(!is.null(params$fileName)){
 
 ```
 
+### Date: `r Sys.Date()`
+
 ### File: `r fname`
 
 ### Log

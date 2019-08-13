@@ -29,6 +29,8 @@ if(cssParams$datingNotes == ""){
 
 ```
 
+### Date: `r Sys.Date()`
+
 ### File: `r fname`
 
 #### Selected Series: 
@@ -53,7 +55,7 @@ res2 <- kable(res, format="html") %>%
 gsub("<thead>.*</thead>", "", res2)
 ```
 
-#### Parameters:
+#### Arguments:
 
 ```{r,echo=FALSE}
 tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
