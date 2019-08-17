@@ -1,5 +1,7 @@
 Welcome to the beta version of **xDateR** -- a Shiny app for crossdating tree-ring data. This app will help you do initial quality control on a set of (usually) ring widths and potentially identify dating problems.  The idea for this app is to use existing functions in the pacakge [*dplR*](https://rdrr.io/cran/dplR/man/dplR.html) to provide an interactive environment for assessing dating quality and potentially fixing problems.
 
+[A video showing how to use some of the functions is on YouTube.](https://youtu.be/TbjZvnnYCy0)
+
 This app contains tools for crossdating data uploaded in an accepted standard *rwl* file format. You should start by uploading a file using the widget on the left. If you want to use an example data set you can check the "Or use example data" box. The example data are  ring-width data where the dates in some of the series have been deliberately corrupted.
 
 After uploading, standard descriptive statistics and plots are produced in the **Describe RWL Data** tab. This is the beginning of the cross-dating process. The **Correlations Between Series** tab produces standard correlation graphs and statistics based on segment length and other options specified by the user. The **Individual Series Correlations** tab allows individual series to be further investigated via running and cross-correlation analyses. Rings can be added and deleted using the **Edit Series** tab. Reports can be saved at every step and a *rwl* file can be written. 
