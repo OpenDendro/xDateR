@@ -6,7 +6,7 @@ After uploading, standard descriptive statistics and plots are produced in the *
 
 Preliminary functionality to work with undated series (floaters) is available as well. To access those features, first load a dated (master) *rwl* file. After that, you can then upload a *rwl* file with arbitary dates. Once you do so, the **Undated Series** tab will appear. There you can to try to find dates for each of those series as compared to the dated *rwl* file. As before, you can use a demo data.
 
-[This project is on GitHub](https://github.com/AndyBunn/dplR/) as is [dplR](https://github.com/AndyBunn/dplR/). 
+[This project is on GitHub](https://github.com/AndyBunn/xDateR/) as is [dplR](https://github.com/AndyBunn/dplR/). 
 
 Please cite *dplR* if you use this app in any published work:
 

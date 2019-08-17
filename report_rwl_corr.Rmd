@@ -12,6 +12,7 @@ params:
 ```{r,echo=FALSE}
 library(DT)
 library(knitr)
+library(kableExtra)
 crsObject <- params$crsObject
 crsParams <- params$crsParams
 ```
