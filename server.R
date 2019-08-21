@@ -253,6 +253,7 @@ shinyServer(function(session, input, output) {
     else{
       n <- as.numeric(input$nCRS)
     }
+    # init bin.floor and seg length based on mean series length (or series[1]?).
     crs <- corr.rwl.seg(dat, seg.length = input$seg.lengthCRS, 
                         bin.floor = as.numeric(input$bin.floorCRS),n = n,
                         prewhiten = input$prewhitenCRS, pcrit = input$pcritCRS,

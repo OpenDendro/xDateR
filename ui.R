@@ -119,7 +119,7 @@ ui <- tagList(
              fluidRow(
                hr(),
                h5("Correlation Overview"),
-               p("Significant correlations are in **bold**"),
+               p("Significant correlations are in bold."),
                column(4,
                       DTOutput("crsOverall")),
                column(4,
