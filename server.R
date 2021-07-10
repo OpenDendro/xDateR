@@ -161,7 +161,8 @@ shinyServer(function(session, input, output) {
                       min=minWin + 20,
                       max=maxWin - 50,
                       value=round(mean(winBnds),-1),
-                      step=5)
+                      step=5,
+                      sep = "")
         )
       })
       output$rangeCCF <- renderUI({

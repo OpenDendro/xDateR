@@ -220,7 +220,7 @@ ui <- tagList(
                                   label="Window width",
                                   value=50,
                                   min=10,
-                                  max=200,
+                                  max=100,
                                   step=10)
                ),
                column(2)
