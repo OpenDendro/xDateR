@@ -187,14 +187,16 @@ ui <- tagList(
                                    value=5,min=1,max=100,step=1)
                ),
                column(4,
-                      sliderInput(inputId="rangeCCF", 
-                                  label="Adjust plotted years", 
-                                  min = NA, 
-                                  max = NA, 
-                                  value = c(NA,NA), 
-                                  step = 10,
-                                  sep = "", 
-                                  dragRange = TRUE)
+                      # Think this has to be a renderUI
+                      #sliderInput(inputId="rangeCCF", 
+                      #            label="Adjust plotted years", 
+                      #            min = NA, 
+                      #            max = NA, 
+                      #            value = c(NA,NA), 
+                      #            step = 5,
+                      #            sep = "", 
+                      #            dragRange = TRUE)
+                      uiOutput("rangeCCF")
                ),
                column(2)
              ),
@@ -204,18 +206,22 @@ ui <- tagList(
              fluidRow(
                column(2),
                column(4,
-                      sliderInput(inputId = "winCenter",
-                                  label="Window Center",
-                                  value=NA,
-                                  min=NA,
-                                  max=NA,
-                                  step=NA,
-                                  sep = "")
+                      # sliderInput(inputId = "winCenter",
+                      #             label="Window Center",
+                      #             value=NA,
+                      #             min=NA,
+                      #             max=NA,
+                      #             step=NA,
+                      #            sep = "")
+                      uiOutput("winCenter")
                ),
                column(4,
                       sliderInput(inputId="winWidth", 
                                   label="Window width",
-                                  value=50,min=10,max=200,step=10)
+                                  value=50,
+                                  min=10,
+                                  max=200,
+                                  step=10)
                ),
                column(2)
              ),
@@ -302,8 +308,12 @@ ui <- tagList(
                       selectInput(inputId = "series2",
                                   label = "Choose undated series",
                                   choices = c("bar")),
-                      sliderInput(inputId="minOverlapUndated", label="Minimim Overlap", 
-                                  value=50,min=10,max=200,step=10)
+                      sliderInput(inputId="minOverlapUndated", 
+                                  label="Minimim Overlap", 
+                                  value=50,
+                                  min=10,
+                                  max=200,
+                                  step=10)
                ),
                column(2,
                       checkboxInput(inputId="prewhitenUndated", label="Prewhiten",value=TRUE),

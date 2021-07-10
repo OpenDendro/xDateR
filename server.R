@@ -140,20 +140,42 @@ shinyServer(function(session, input, output) {
       winBnds <- as.numeric(tmp[tmp$series==input$series,2:3])
       minWin <- round(winBnds[1] + input$lagCCF,-1)
       maxWin <- round(winBnds[2] - input$lagCCF,-1)
-      updateSliderInput(session = session,
-                        inputId = "winCenter",
-                        value=round(mean(winBnds),-1),
-                        min=minWin + 20,
-                        max=maxWin - 50,
-                        step=5)
-      
-      updateSliderInput(session = session,
-                        inputId = "rangeCCF",
-                        value=c(minWin,
-                                maxWin),
-                        min=minWin,
-                        max=maxWin,
-                        step=5)
+      # updateSliderInput(session = session,
+      #                   inputId = "winCenter",
+      #                   value=round(mean(winBnds),-1),
+      #                   min=minWin + 20,
+      #                   max=maxWin - 50,
+      #                   step=5)
+      # 
+      # updateSliderInput(session = session,
+      #                   inputId = "rangeCCF",
+      #                   value=c(minWin,
+      #                           maxWin),
+      #                   min=minWin,
+      #                   max=maxWin,
+      #                   step=5)
+      output$winCenter <- renderUI({
+        tagList(
+          sliderInput(inputId = "winCenter",
+                      label="Window Center",
+                      min=minWin + 20,
+                      max=maxWin - 50,
+                      value=round(mean(winBnds),-1),
+                      step=5)
+        )
+      })
+      output$rangeCCF <- renderUI({
+        tagList(
+          sliderInput(inputId = "rangeCCF",
+                      label="Adjust plotted years", 
+                      min=minWin,
+                      max=maxWin,
+                      value=c(minWin,maxWin),
+                      step=5,
+                      sep = "", 
+                      dragRange = TRUE)
+        )
+      })
     },
     label = "observe series being selected and update the window sliders")
   ##############################################################
@@ -884,7 +906,7 @@ shinyServer(function(session, input, output) {
                                  " saved with dates ", firstBest, " to ", 
                                  lastBest, ".", sep=""))
         rwlRV$undated2dated <- combine.rwl(rwlRV$undated2dated,
-                                         floaterObject$rwlOut)
+                                           floaterObject$rwlOut)
       }
     }
   })
