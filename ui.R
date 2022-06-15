@@ -3,8 +3,8 @@ library(dplR)
 library(DT)
 library(shinyjs)
 library(shinyWidgets)
-library(DataEditR)
-
+library(markdown)
+#library(DataEditR)
 
 ui <- tagList(
   useShinyjs(),
@@ -187,15 +187,6 @@ ui <- tagList(
                                    value=5,min=1,max=100,step=1)
                ),
                column(4,
-                      # Think this has to be a renderUI
-                      #sliderInput(inputId="rangeCCF", 
-                      #            label="Adjust plotted years", 
-                      #            min = NA, 
-                      #            max = NA, 
-                      #            value = c(NA,NA), 
-                      #            step = 5,
-                      #            sep = "", 
-                      #            dragRange = TRUE)
                       uiOutput("rangeCCF")
                ),
                column(2)
@@ -222,10 +213,10 @@ ui <- tagList(
                column(4,
                       sliderInput(inputId="winWidth", 
                                   label="Window width",
-                                  value=50,
+                                  value=40,
                                   min=10,
-                                  max=100,
-                                  step=10)
+                                  max=80,
+                                  step=5)
                ),
                column(2)
              ), # end row 1

@@ -3,7 +3,8 @@ library(rmarkdown)
 library(dplR)
 library(DT)
 library(shinyWidgets)
-library(DataEditR)
+library(markdown)
+#library(DataEditR)
 
 source("xdate.floater.R")  
 
@@ -143,26 +144,13 @@ shinyServer(function(session, input, output) {
       winBnds <- as.numeric(tmp[tmp$series==input$series,2:3])
       minWin <- round(winBnds[1] + input$lagCCF,-1)
       maxWin <- round(winBnds[2] - input$lagCCF,-1)
-      # updateSliderInput(session = session,
-      #                   inputId = "winCenter",
-      #                   value=round(mean(winBnds),-1),
-      #                   min=minWin + 20,
-      #                   max=maxWin - 50,
-      #                   step=5)
-      # 
-      # updateSliderInput(session = session,
-      #                   inputId = "rangeCCF",
-      #                   value=c(minWin,
-      #                           maxWin),
-      #                   min=minWin,
-      #                   max=maxWin,
-      #                   step=5)
+      
       output$winCenter <- renderUI({
         tagList(
           sliderInput(inputId = "winCenter",
                       label="Window Center",
-                      min=minWin + 20,
-                      max=maxWin - 50,
+                      min=minWin + 30,
+                      max=maxWin - 30,
                       value=round(mean(winBnds),-1),
                       step=5,
                       sep = "")
@@ -575,34 +563,7 @@ shinyServer(function(session, input, output) {
                                 biweight = input$biweightCSS, method = input$methodCSS,
                                 lag.max = input$lagCCF,make.plot=TRUE)
   })
-  
-  # -- plot the results from xskel.ccf.plot
-  output$xskelPlot <- renderPlot({
-    
-    req(filteredRWL())
-    req(input$series)
-    dat <- rwlRV$dated
-    
-    if(input$nCSS=="NULL"){
-      n <- NULL
-    }
-    else{
-      n <- as.numeric(input$nCSS)
-    }
-    
-    wCenter <- input$winCenter - (input$winWidth/2)
-    
-    xskelObject <- xskel.ccf.plot(dat, series = input$series, 
-                                  win.start = wCenter,
-                                  win.width = input$winWidth,
-                                  n = n,
-                                  prewhiten = input$prewhitenCSS,
-                                  biweight = input$biweightCSS)
-  })
-  
-  # -- edit series
-  
-  
+
   # -- report
   output$cssReport <- downloadHandler(
     filename = "series_correlation_report.html",
@@ -638,6 +599,30 @@ shinyServer(function(session, input, output) {
   # 5th (a) tab Edit Series
   #
   ##############################################################
+  # -- plot the results from xskel.ccf.plot
+  output$xskelPlot <- renderPlot({
+    
+    req(filteredRWL())
+    req(input$series)
+    dat <- rwlRV$dated
+    
+    if(input$nCSS=="NULL"){
+      n <- NULL
+    }
+    else{
+      n <- as.numeric(input$nCSS)
+    }
+    
+    wCenter <- input$winCenter - (input$winWidth/2)
+    
+    xskelObject <- xskel.ccf.plot(dat, series = input$series, 
+                                  win.start = wCenter,
+                                  win.width = input$winWidth,
+                                  n = n,
+                                  prewhiten = input$prewhitenCSS,
+                                  biweight = input$biweightCSS)
+  })
+  
   # delete rows
   observeEvent(input$deleteRows,{
     req(filteredRWL())
