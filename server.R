@@ -761,29 +761,24 @@ shinyServer(function(session, input, output) {
   output$table1 <- renderDataTable({
     req(filteredRWL())
     getSeries4Editing() # gets the rwlRV$seriesDF object
-    # datatable(rwlRV$seriesDF,
-    #           selection=list(mode="single",target="row"),
-    #           rownames = FALSE, 
-    #           autoHideNavigation=TRUE,
-    #           options = list(paging = FALSE,
-    #                          #pageLength = min(50,nrow(rwlRV$seriesDF)),
-    #                          searching=TRUE,
-    #                          lengthChange=FALSE,
-    #                          columnDefs = list(list(className = 'dt-left', 
-    #                                                 targets = "_all"))))
-    # 
+    wStart <- input$winCenter - (input$winWidth/2)
+    wEnd <- input$winCenter + (input$winWidth/2)
+    nRows <- length(seq(wStart,wEnd)) * 33.33 # 33.33 is the height of the rows in px
+    row2start <- which(rwlRV$seriesDF[,1] == wStart)
     datatable(rwlRV$seriesDF,
               selection=list(mode="single",target="row"),
               extensions = "Scroller", 
               rownames = FALSE, 
               options = list(deferRender = TRUE,
                              autoWidth = TRUE,
-                             scrollY = 300, #px
+                             scrollY = nRows, #px
                              scroller = TRUE,
                              searching=FALSE,
                              lengthChange=FALSE,
                              columnDefs = list(list(className = 'dt-left', 
-                                                    targets = "_all"))))
+                                                    targets = "_all")),
+                             initComplete  = JS('function() {this.api().table().scroller.toPosition(',
+                                                row2start-1,');}')))
   })
   
   # -- log
