@@ -3,7 +3,7 @@ library(dplR)
 library(DT)
 library(shinyjs)
 library(shinyWidgets)
-
+library(DataEditR)
 
 
 ui <- tagList(
@@ -14,8 +14,9 @@ ui <- tagList(
   navbarPage(
     title = "xDateR",
     id = "navbar",
-    # 1st tab ----
-    tabPanel(title="Introduction and Upload",value="tab1",
+    # start tabs
+    # 1st tab Introduction and Upload ----
+    tabPanel(title="1. Introduction and Upload",value="IntroTab",
              sidebarLayout(
                # Sidebar panel for inputs
                sidebarPanel(
@@ -53,9 +54,8 @@ ui <- tagList(
                )
              )
     ),
-    # 2nd tab ----
-    
-    tabPanel(title="Describe RWL Data",value="tab2",
+    # 2nd tab Describe RWL Data ----
+    tabPanel(title="2. Describe RWL Data",value="DescribeTab",
              # Sidebar layout with input and output definitions
              includeMarkdown("text_describe.rmd"),
              hr(),
@@ -72,8 +72,8 @@ ui <- tagList(
              hr(),
              downloadButton("rwlSummaryReport", "Generate report")
     ),
-    # 3rd tab ----
-    tabPanel(title="Correlations Between Series", value="tab3",
+    # 3rd tab Correlations Between Series ----
+    tabPanel(title="3. Correlations Between Series", value="AllSeriesTab",
              includeMarkdown("text_rwl_correlation.rmd"),
              h5("Correlation by Series and Segment"),
              plotOutput("crsPlot"),
@@ -134,8 +134,8 @@ ui <- tagList(
              hr(),
              downloadButton("crsReport", "Generate report")
     ),
-    # 4th tab ----
-    tabPanel(title="Individual Series Correlations", value="tab4",
+    # 4th tab Individual Series Correlations ----
+    tabPanel(title="4. Individual Series Correlations", value="IndividualSeriesTab",
              includeMarkdown("text_series_correlation.rmd"),
              hr(),
              h5("Flagged Series"),
@@ -201,18 +201,22 @@ ui <- tagList(
                column(2)
              ),
              hr(),
+             textAreaInput(inputId="datingNotes", 
+                           label="Dating notes",
+                           value="",width="600px",height = "400px",
+                           placeholder="Notes will be saved if you generate a report."),
+             hr(),
+             downloadButton("cssReport", "Generate report")
+    ),
+    # 5th (a) tab Edit Series ----
+    tabPanel(title="5. Edit Series",value="EditSeriesTab",
+             # start row 1 for skel ccf (might need spacer cols?)
              h5("Series Cross-Correlation with Skeleton Plot"),
+             textOutput("series2edit"),
              plotOutput("xskelPlot"),
              fluidRow(
                column(2),
                column(4,
-                      # sliderInput(inputId = "winCenter",
-                      #             label="Window Center",
-                      #             value=NA,
-                      #             min=NA,
-                      #             max=NA,
-                      #             step=NA,
-                      #            sep = "")
                       uiOutput("winCenter")
                ),
                column(4,
@@ -224,77 +228,75 @@ ui <- tagList(
                                   step=10)
                ),
                column(2)
-             ),
+             ), # end row 1
+             # start row 2 instrutions
              hr(),
-             textAreaInput(inputId="datingNotes", 
-                           label="Dating notes",
-                           value="",width="600px",height = "400px",
-                           placeholder="Notes will be saved if you generate a report."),
-             hr(),
-             downloadButton("cssReport", "Generate report")
-    ),
-    # 5th tab ----
-    tabPanel(title="Edit Series",value="tab5",
-             sidebarLayout(
-               sidebarPanel(
-                 includeMarkdown("text_edit.rmd"),
-                 hr(),
-                 h5("Remove Row"),
-                 fluidRow(
-                   column(6,
-                          actionButton("deleteRows", "Delete Measurement")
-                   ),
-                   column(6,
-                          checkboxInput(inputId="deleteRingFixLast", 
-                                        label="Fix Last Year",value=TRUE)
-                   )
-                 ),
-                 helpText("Click \"Delete Measurement\" to delete a year (row). 
+             includeMarkdown("text_edit.rmd"),
+             # end row 2
+             fluidRow( # start row 3
+               column(1), #space
+               column(5, # col for remove on left
+                      h5("Remove Row"),
+                      actionButton("deleteRows", "Delete Measurement"),
+                      checkboxInput(inputId="deleteRingFixLast", 
+                                    label="Fix Last Year",value=TRUE),
+                      helpText("Click \"Delete Measurement\" to delete a year (row). 
                                      If \"Fix Last Year\" is selected the last year of 
                                     growth will stay the same."),
-                 hr(),
-                 h5("Add Row"),
-                 numericInput(inputId="insertValue", 
-                              label="Measurement Value",
-                              value = 0,
-                              min = 0),
-                 fluidRow(
-                   column(6,
-                          actionButton("insertRows", "Insert Measurement")
-                   ),
-                   column(6,
-                          checkboxInput(inputId="insertRingFixLast", 
-                                        label="Fix Last Year",value=TRUE)
-                   ),
-                   helpText("To add a year, enter a 
+                      h5("Add Row"),
+                      numericInput(inputId="insertValue", 
+                                   label="Measurement Value",
+                                   value = 0,
+                                   min = 0),
+                      actionButton("insertRows", "Insert Measurement"),
+                      checkboxInput(inputId="insertRingFixLast", 
+                                    label="Fix Last Year",value=TRUE),
+                      helpText("To add a year, enter a 
                                              value and click \"Insert Measurement.\" The new row appears above 
                                       the highlight. If \"Fix Last Year\" is selected the 
                                       last year of growth will stay the same.")
-                 ),
-                 hr(),
-                 h5("Undo Changes"),
-                 actionButton("revertSeries", "Revert Changes"),
-                 hr(),
-                 h5("Save Edited File"),
-                 downloadButton('downloadRWL', 'Download rwl object (.rwl)'),
-                 helpText("The rwl file is writen in tucson/decadal format readable 
+               ), # end col for remove row
+               column(5,  # start col for table
+                      dataTableOutput("table1")
+               ), #end col for table
+               column(1) # space
+             ), #end row 3
+             # start row 4
+             hr(),
+             h5("Undo Changes"),
+             actionButton("revertSeries", "Revert Changes"),
+             hr(),
+             h5("Save Edited File"),
+             downloadButton('downloadRWL', 'Download rwl object (.rwl)'),
+             helpText("The rwl file is writen in tucson/decadal format readable 
                                      by standard dendro programs.(e.g., read.rwl() in 
                                      dplR)."),
-                 hr(),
-                 h5("Log"),
-                 verbatimTextOutput("editLog"),
-                 downloadButton("editReport", "Generate report"),
-                 width=5),
-               
-               mainPanel(
-                 textOutput("series2edit"),
-                 hr(),
-                 dataTableOutput("table1"),
-                 width=7)
-             )
-    ),
-    # 6th tab ----
-    tabPanel(title="Undated Series",value="tab6",
+             hr(),
+             h5("Log"),
+             verbatimTextOutput("editLog"),
+             downloadButton("editReport", "Generate report")
+             # end row 4
+    ), # end tab
+    # 5th (b) tab DataEditR Series ----
+    # this works after a fashion but I'm not sure it will have 
+    # the right functionality for keeping years fixed etc.
+    # tabPanel(title="5b. Edit Series",value="DataEditRSeriesTab",
+    #          sidebarLayout(
+    #            sidebarPanel(
+    #              includeMarkdown("text_DataEditR.rmd"),
+    #              width=5),
+    #            
+    #            mainPanel(
+    #              textOutput("series2DataEditR"),
+    #              hr(),
+    #              p("The data itself"),
+    #              dataEditUI("edit-1"),
+    #              p("was it there?"),
+    #              width=7)
+    #          )
+    # ),
+    # 6th tab Undated Series ----
+    tabPanel(title="6. Undated Series",value="UndatedSeriesTab",
              includeMarkdown("text_undated.rmd"),
              hr(),
              h5("RWL Report"),
@@ -388,7 +390,8 @@ ui <- tagList(
              downloadButton("undatedReport", "Generate report")
              
     )
-    # end tabs ----
+    # end tabs
   )
 )
+
 

@@ -3,6 +3,7 @@ library(rmarkdown)
 library(dplR)
 library(DT)
 library(shinyWidgets)
+library(DataEditR)
 
 source("xdate.floater.R")  
 
@@ -15,7 +16,7 @@ shinyServer(function(session, input, output) {
   # (and a backup). The advantage of this is that it can be edited 
   # and saved between tabs
   rwlRV <- reactiveValues()
-  # Here are the elements of rwlRV. These don't need to be decalred here
+  # Here are the elements of rwlRV. These don't need to be declared here
   # but I want to keep track of what's in the object as a matter of best
   # practices
   
@@ -45,14 +46,15 @@ shinyServer(function(session, input, output) {
   
   
   # When app is initiated, hide all the tabs but the first one.
-  # This creates an oberver so that they can be toggled when triggered
+  # This creates an observer so that they can be toggled when triggered
   # by an event
   observe({
-    hide(selector = "#navbar li a[data-value=tab2]")
-    hide(selector = "#navbar li a[data-value=tab3]")
-    hide(selector = "#navbar li a[data-value=tab4]")
-    hide(selector = "#navbar li a[data-value=tab5]")
-    hide(selector = "#navbar li a[data-value=tab6]")
+    hide(selector = "#navbar li a[data-value=DescribeTab]")
+    hide(selector = "#navbar li a[data-value=AllSeriesTab]")
+    hide(selector = "#navbar li a[data-value=IndividualSeriesTab]")
+    hide(selector = "#navbar li a[data-value=EditSeriesTab]")
+#    hide(selector = "#navbar li a[data-value=DataEditRSeriesTab]")
+    hide(selector = "#navbar li a[data-value=UndatedSeriesTab]")
   }, label = "tab hider")
   
   # When the dated RWL file is read in: 
@@ -60,20 +62,21 @@ shinyServer(function(session, input, output) {
   # 2. show the upload box for the floaters
   observeEvent({getRWL()},
                {
-                 toggle(selector = "#navbar li a[data-value=tab2]")
-                 toggle(selector = "#navbar li a[data-value=tab3]")
-                 toggle(selector = "#navbar li a[data-value=tab4]")
-                 toggle(selector = "#navbar li a[data-value=tab5]")
+                 toggle(selector = "#navbar li a[data-value=DescribeTab]")
+                 toggle(selector = "#navbar li a[data-value=AllSeriesTab]")
+                 toggle(selector = "#navbar li a[data-value=IndividualSeriesTab]")
+                 toggle(selector = "#navbar li a[data-value=EditSeriesTab]")
+#                 toggle(selector = "#navbar li a[data-value=DataEditRSeriesTab]")
                  shinyjs::show('divUndated')
                }, label = "tab shower")
   
-  # When an undated RWL file is read in, show all the floater tab
+  # When an undated RWL file is read in, show the floater tab
   observeEvent(
     eventExpr = {
       getRWLUndated()
     },
     handlerExpr = {
-      toggle(selector = "#navbar li a[data-value=tab6]")
+      toggle(selector = "#navbar li a[data-value=UndatedSeriesTab]")
     }, 
     label = "tab shower")
   
@@ -96,7 +99,7 @@ shinyServer(function(session, input, output) {
     label = "updates the check boxes for filtering the master")
   
   # observe which series gets selected for the individual series correlation
-  # analysis and create the variable input$series. It deafaults to the first
+  # analysis and create the variable input$series. It defaults to the first
   # series.
   observeEvent(
     eventExpr = {
@@ -195,8 +198,6 @@ shinyServer(function(session, input, output) {
   #
   ##############################################################
   
-  
-  
   # Get the RWL file from the user at the start or use demo data
   getRWL <- reactive({
     if (input$useDemoDated) {
@@ -235,7 +236,6 @@ shinyServer(function(session, input, output) {
       return(dat)
     }
   })
-  
   
   # This is the reactive that filters that RWL object.
   # It waits for an event to occur. Here it waits for 
@@ -311,6 +311,23 @@ shinyServer(function(session, input, output) {
     res
   })
   
+  ## reactive to get a data series for editing
+  getSeries4Editing <- reactive({
+    req(filteredRWL())
+    dat <- rwlRV$dated
+    datNoSeries <- dat
+    datNoSeries[,input$series] <- NULL
+    series <- dat[,input$series]
+    mask <- is.na(series)
+    seriesDF <- data.frame(Year=time(datNoSeries)[!mask],
+                           Value=series[!mask])
+    
+    #write to RV for ease in editing observations
+    rwlRV$datedNoSeries <- datNoSeries
+    rwlRV$seriesDF <- seriesDF
+    # doesn't need to return anything b/c it is writing to rwlRV?
+  })
+  
   ##############################################################
   #
   # END reactives
@@ -320,7 +337,7 @@ shinyServer(function(session, input, output) {
   
   ##############################################################
   #
-  # 1st tab 
+  # 2nd tab Describe RWL Data
   #
   ##############################################################
   
@@ -365,7 +382,7 @@ shinyServer(function(session, input, output) {
   
   ##############################################################
   #
-  # 2nd tab 
+  # 3rd tab Correlations Between Series 
   #
   ##############################################################
   
@@ -482,7 +499,7 @@ shinyServer(function(session, input, output) {
   
   ##############################################################
   #
-  # 3rd tab 
+  # 4th tab Individual Series Correlations
   #
   ##############################################################
   
@@ -527,7 +544,8 @@ shinyServer(function(session, input, output) {
       n <- as.numeric(input$nCSS)
     }
     
-    css <- corr.series.seg(dat, series = input$series, seg.length = input$seg.lengthCSS, 
+    css <- corr.series.seg(dat, series = input$series, 
+                           seg.length = input$seg.lengthCSS, 
                            bin.floor = as.numeric(input$bin.floorCSS),n = n,
                            prewhiten = input$prewhitenCSS, pcrit = input$pcritCSS,
                            biweight = input$biweightCSS, method = input$methodCSS,
@@ -617,7 +635,7 @@ shinyServer(function(session, input, output) {
   )
   ##############################################################
   #
-  # 4th tab 
+  # 5th (a) tab Edit Series
   #
   ##############################################################
   # delete rows
@@ -734,34 +752,38 @@ shinyServer(function(session, input, output) {
                                fixLast = NULL)
   })
   
+  # series name
   output$series2edit <- renderText({
     paste("Series", input$series, "selected",sep=" ")
   })
   
+  # series table
   output$table1 <- renderDataTable({
     req(filteredRWL())
-    dat <- rwlRV$dated
-    datNoSeries <- dat
-    datNoSeries[,input$series] <- NULL
-    series <- dat[,input$series]
-    mask <- is.na(series)
-    seriesDF <- data.frame(Year=time(datNoSeries)[!mask],
-                           Value=series[!mask])
-    
-    #write to RV for ease in editing observations
-    rwlRV$datedNoSeries <- datNoSeries
-    rwlRV$seriesDF <- seriesDF
-    
+    getSeries4Editing() # gets the rwlRV$seriesDF object
+    # datatable(rwlRV$seriesDF,
+    #           selection=list(mode="single",target="row"),
+    #           rownames = FALSE, 
+    #           autoHideNavigation=TRUE,
+    #           options = list(paging = FALSE,
+    #                          #pageLength = min(50,nrow(rwlRV$seriesDF)),
+    #                          searching=TRUE,
+    #                          lengthChange=FALSE,
+    #                          columnDefs = list(list(className = 'dt-left', 
+    #                                                 targets = "_all"))))
+    # 
     datatable(rwlRV$seriesDF,
               selection=list(mode="single",target="row"),
+              extensions = "Scroller", 
               rownames = FALSE, 
-              autoHideNavigation=TRUE,
-              options = list(pageLength = min(50,nrow(rwlRV$seriesDF)),
-                             searching=TRUE,
+              options = list(deferRender = TRUE,
+                             autoWidth = TRUE,
+                             scrollY = 300, #px
+                             scroller = TRUE,
+                             searching=FALSE,
                              lengthChange=FALSE,
                              columnDefs = list(list(className = 'dt-left', 
                                                     targets = "_all"))))
-    
   })
   
   # -- log
@@ -800,7 +822,31 @@ shinyServer(function(session, input, output) {
   
   ##############################################################
   #
-  # 6th tab -- floaters
+  # 5th (b) tab DataEditR Series
+  #
+  ##############################################################
+  # this works after a fashion but I'm not sure it will have 
+  # the right functionality for keeping years fixed etc.
+  # series name
+  # output$series2DataEditR <- renderText({
+  #   paste("Series", input$series, "selected",sep=" ")
+  # })
+  # 
+  # observeEvent(
+  #   input$series, # right trigger?
+  #   handlerExpr = {
+  #     getSeries4Editing()
+  #     seriesTmp <- rwlRV$seriesDF
+  #     row.names(seriesTmp) <- seriesTmp[,1]
+  #     data_edit <- dataEditServer(id = "edit-1",
+  #                                 data = seriesTmp,
+  #                                 col_edit = FALSE)
+  #   }
+  # )
+  
+  ##############################################################
+  #
+  # 6th tab Undated Series
   #
   ##############################################################
   
