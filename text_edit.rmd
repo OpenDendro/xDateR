@@ -1,6 +1,9 @@
 ##### Instructions
-
-1. Highlight a row in the table. 
-2. Edit using "Delete" or "Insert"
-3. Review previous tabs to assess effect of the edits.
-4. Click "Revert" to undo your edits or "Download" to write out the *rwl* file.
+The series selected in tab "Individual Series Correlations" can be edited here.
+1. Scroll the Window Center slider to the area of the series you want to edit.
+2. Adjust the Window Width slider. The table on the right will scroll to those measurements.
+3. Click on a row in the table to select a measurement to edit. 
+4. Edit using "Remove Row" or "Add Row."
+5. Review the "Individual Series Correlations" tabs to assess effect of the edits.
+6. Select other series as needed.
+7. Click "Revert" to undo your edits or "Download" to write out the edited *rwl* file.
