@@ -1,5 +1,4 @@
 ##### Instructions
-
 The series selected in tab "Individual Series Correlations" can be edited here.
 
 1. Scroll the Window Center slider to the area of the series you want to edit.

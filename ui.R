@@ -220,13 +220,13 @@ ui <- tagList(
                ),
                column(2)
              ), # end row 1
-             # start row 2 instrutions
+             # start row 2
              hr(),
-             includeMarkdown("text_edit.rmd"),
              # end row 2
              fluidRow( # start row 3
                column(1), #space
                column(5, # col for remove on left
+                      includeMarkdown("text_edit.rmd"),
                       h5("Remove Row"),
                       actionButton("deleteRows", "Delete Measurement"),
                       checkboxInput(inputId="deleteRingFixLast", 
