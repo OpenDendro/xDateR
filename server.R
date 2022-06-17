@@ -4,7 +4,6 @@ library(dplR)
 library(DT)
 library(shinyWidgets)
 library(markdown)
-#library(DataEditR)
 
 source("xdate.floater.R")  
 
@@ -235,7 +234,6 @@ shinyServer(function(session, input, output) {
       input$updateMasterButton
       getRWL()
     },
-    #handlerExpr ={},# The expression to call whenever eventExpr is invalidated.
     valueExpr = {
       # this is what happens if triggered
       req(getRWL())
