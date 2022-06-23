@@ -1,10 +1,18 @@
+list.of.packages <- c("shiny","rmarkdown","markdown","dplR",
+                      "shinyWidgets","DT","shinyjs")
+#checking missing packages from list
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+
+#install missing ones
+if(length(new.packages)) install.packages(new.packages, dependencies = TRUE)
+
 library(shiny)
+library(markdown)
+library(rmarkdown)
 library(dplR)
 library(DT)
 library(shinyjs)
 library(shinyWidgets)
-library(markdown)
-#library(DataEditR)
 
 ui <- tagList(
   useShinyjs(),

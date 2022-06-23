@@ -1,10 +1,3 @@
-library(shiny)
-library(rmarkdown)
-library(dplR)
-library(DT)
-library(shinyWidgets)
-library(markdown)
-
 source("xdate.floater.R")  
 
 # Server logic
@@ -349,8 +342,8 @@ shinyServer(function(session, input, output) {
     filename = "rwl_summary_report.html",
     content = function(file) {
       
-      tempReport <- file.path(tempdir(), "report_rwl_describe.Rmd")
-      file.copy("report_rwl_describe.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "report_rwl_describe.rmd")
+      file.copy("report_rwl_describe.rmd", tempReport, overwrite = TRUE)
       
       rwlObject <- rwlRV$dated
       params <- list(fileName = input$file1$name, rwlObject=rwlObject,
@@ -461,8 +454,8 @@ shinyServer(function(session, input, output) {
   output$crsReport <- downloadHandler(
     filename = "rwl_correlation_report.html",
     content = function(file) {
-      tempReport <- file.path(tempdir(), "report_rwl_corr.Rmd")
-      file.copy("report_rwl_corr.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "report_rwl_corr.rmd")
+      file.copy("report_rwl_corr.rmd", tempReport, overwrite = TRUE)
       
       crsObject <- getCRS()
       crsParams <- list(seg.length=input$seg.lengthCRS,
@@ -566,8 +559,8 @@ shinyServer(function(session, input, output) {
   output$cssReport <- downloadHandler(
     filename = "series_correlation_report.html",
     content = function(file) {
-      tempReport <- file.path(tempdir(), "report_series.Rmd")
-      file.copy("report_series.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "report_series.rmd")
+      file.copy("report_series.rmd", tempReport, overwrite = TRUE)
       
       cssParams <- list(seg.length=input$seg.lengthCSS,
                         bin.floor=input$bin.floorCSS,
@@ -775,8 +768,8 @@ shinyServer(function(session, input, output) {
   output$editReport <- downloadHandler(
     filename = "edits_report.html",
     content = function(file) {
-      tempReport <- file.path(tempdir(), "report_edits.Rmd")
-      file.copy("report_edits.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "report_edits.rmd")
+      file.copy("report_edits.rmd", tempReport, overwrite = TRUE)
       
       params <- list(fileName = input$file1$name,
                      editLog = rwlRV$editLog,
@@ -976,8 +969,8 @@ shinyServer(function(session, input, output) {
   output$undatedReport <- downloadHandler(
     filename = "undated_series_report.html",
     content = function(file) {
-      tempReport <- file.path(tempdir(), "report_undated_series.Rmd")
-      file.copy("report_undated_series.Rmd", tempReport, overwrite = TRUE)
+      tempReport <- file.path(tempdir(), "report_undated_series.rmd")
+      file.copy("report_undated_series.rmd", tempReport, overwrite = TRUE)
       
       undatedParams <- list(seg.length=input$seg.lengthUndated,
                             bin.floor=input$bin.floorUndated,
