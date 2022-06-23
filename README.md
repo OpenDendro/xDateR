@@ -2,7 +2,7 @@
 
 ## Overview
 
-A shiny app for interactive crossdating. This is occassionally deployed at:
+A shiny app for interactive crossdating. This is occasionally deployed at:
 
 https://andybunn.shinyapps.io/xDateR/
 
