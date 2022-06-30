@@ -1,4 +1,5 @@
 source("xdate.floater.R")  
+source("plotlyCRSFunc.R")  
 
 # Server logic
 shinyServer(function(session, input, output) {
@@ -374,6 +375,12 @@ shinyServer(function(session, input, output) {
     plot(crsObject)
   })
   
+  output$crsFancyPlot <- renderPlotly({
+    req(filteredRWL())
+    # need to build plot here by hand I think
+    crsObject <- getCRS()
+    crsPlotly(crsObject)
+  })
   # make a table of overall correlation by series 
   output$crsOverall <- renderDT({
     

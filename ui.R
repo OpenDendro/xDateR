@@ -1,5 +1,6 @@
 list.of.packages <- c("shiny","rmarkdown","markdown","dplR",
-                      "shinyWidgets","DT","shinyjs")
+                      "shinyWidgets","DT","shinyjs","plotly",
+                      "tidyverse","RColorBrewer")
 #checking missing packages from list
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 
@@ -13,6 +14,10 @@ library(dplR)
 library(DT)
 library(shinyjs)
 library(shinyWidgets)
+library(plotly)
+library(tidyverse)
+library(RColorBrewer)
+
 
 ui <- tagList(
   useShinyjs(),
@@ -84,7 +89,9 @@ ui <- tagList(
     tabPanel(title="3. Correlations Between Series", value="AllSeriesTab",
              includeMarkdown("text_rwl_correlation.rmd"),
              h5("Correlation by Series and Segment"),
-             plotOutput("crsPlot"),
+#             plotOutput("crsPlot"),
+#             actionButton("launchFancyPlot", "Make Interactive Plot"),
+             plotlyOutput("crsFancyPlot"),
              hr(),
              fluidRow(
                column(12,align="center",
@@ -224,7 +231,7 @@ ui <- tagList(
                                   value=40,
                                   min=10,
                                   max=80,
-                                  step=5)
+                                  step=10)
                ),
                column(2)
              ), # end row 1
