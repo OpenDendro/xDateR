@@ -17,7 +17,7 @@ library(shinyWidgets)
 library(plotly)
 library(tidyverse)
 library(RColorBrewer)
-
+library(kableExtra)
 
 ui <- tagList(
   useShinyjs(),
