@@ -89,8 +89,8 @@ ui <- tagList(
     tabPanel(title="3. Correlations Between Series", value="AllSeriesTab",
              includeMarkdown("text_rwl_correlation.rmd"),
              h5("Correlation by Series and Segment"),
-#             plotOutput("crsPlot"),
-#             actionButton("launchFancyPlot", "Make Interactive Plot"),
+             #             plotOutput("crsPlot"),
+             #             actionButton("launchFancyPlot", "Make Interactive Plot"),
              plotlyOutput("crsFancyPlot"),
              hr(),
              fluidRow(
@@ -269,19 +269,30 @@ ui <- tagList(
              ), #end row 3
              # start row 4
              hr(),
-             h5("Undo Changes"),
-             actionButton("revertSeries", "Revert Changes"),
-             hr(),
-             h5("Save Edited File"),
-             downloadButton('downloadRWL', 'Download rwl object (.rwl)'),
-             helpText("The rwl file is writen in tucson/decadal format readable 
+             conditionalPanel(
+               condition = "output.showSaveEdits == true",
+               fluidRow(
+                 column(1),
+                 column(3,
+                        h5("Undo Changes"),
+                        actionButton("revertSeries", "Revert Changes")
+                 ),
+                 column(7,
+                        h5("Save Edited File"),
+                        downloadButton('downloadRWL', 'Download rwl object (.rwl)'),
+                        helpText("The rwl file is writen in tucson/decadal format readable 
                                      by standard dendro programs.(e.g., read.rwl() in 
-                                     dplR)."),
-             hr(),
-             h5("Log"),
-             verbatimTextOutput("editLog"),
-             downloadButton("editReport", "Generate report")
-             # end row 4
+                                     dplR).")
+                 )
+               ),
+               fluidRow(
+                 column(1),
+                 column(10,
+                        verbatimTextOutput("editLog"),
+                        downloadButton("editReport", "Generate report")
+                 )
+               )
+             )
     ), # end tab
     # 5th (b) tab DataEditR Series ----
     # this works after a fashion but I'm not sure it will have 
@@ -399,5 +410,3 @@ ui <- tagList(
     # end tabs
   )
 )
-
-

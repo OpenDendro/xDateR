@@ -546,6 +546,7 @@ shinyServer(function(session, input, output) {
     req(input$series)
     dat <- rwlRV$dated
     yrs <- time(dat)
+    # How to fix? Warning: Error in :: argument of length 0
     win <- input$rangeCCF[1]:input$rangeCCF[2]
     dat <- dat[yrs %in% win,]
     if(input$nCSS=="NULL"){
@@ -577,8 +578,6 @@ shinyServer(function(session, input, output) {
                         biweight=input$biweightCSS,
                         method=input$methodCSS,
                         series=input$series,
-                        winCenter=input$winCenter,
-                        winWidth=input$winWidth,
                         lagCCF=input$lagCCF,
                         datingNotes=input$datingNotes,
                         winCCF = input$rangeCCF[1]:input$rangeCCF[2])
@@ -744,10 +743,15 @@ shinyServer(function(session, input, output) {
   output$table1 <- renderDataTable({
     req(filteredRWL())
     getSeries4Editing() # gets the rwlRV$seriesDF object
-    wStart <- input$winCenter - (input$winWidth/2)
-    wEnd <- input$winCenter + (input$winWidth/2)
+    # wStart <- input$winCenter - (input$winWidth/2)
+    # wEnd <- input$winCenter + (input$winWidth/2)
+    # nRows <- length(seq(wStart,wEnd)) * 33.33 # 33.33 is the height of the rows in px
+    # row2start <- which(rwlRV$seriesDF[,1] == wStart)
+    wStart <- input$winCenter - 10
+    wEnd <- input$winCenter + 10
     nRows <- length(seq(wStart,wEnd)) * 33.33 # 33.33 is the height of the rows in px
     row2start <- which(rwlRV$seriesDF[,1] == wStart)
+    
     datatable(rwlRV$seriesDF,
               selection=list(mode="single",target="row"),
               extensions = "Scroller", 
@@ -771,6 +775,14 @@ shinyServer(function(session, input, output) {
       rwlRV$editLog  
     }
   })
+  
+  # only show save, report, and revert buttons when edit have been made
+  output$showSaveEdits <- reactive({
+    ifelse(!all(sapply(rwlRV$editDF, is.null)),TRUE,FALSE)
+  })
+  outputOptions(output, "showSaveEdits", suspendWhenHidden = FALSE)
+  
+
   # -- report
   output$editReport <- downloadHandler(
     filename = "edits_report.html",
