@@ -2,10 +2,7 @@
 
 ## Overview
 
-A shiny app for interactive crossdating. This is occasionally deployed at:
+A shiny app for interactive crossdating. This is deployed as part of openDendro at:
 
-https://andybunn.shinyapps.io/xDateR/
-
-A tutorial is on YouTube
-https://youtu.be/TbjZvnnYCy0
+https://viz.datascience.arizona.edu/xDateR/ 
 
