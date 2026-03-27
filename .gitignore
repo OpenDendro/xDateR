@@ -1,7 +1,24 @@
+# RStudio project files
 .Rproj.user
+
+# R session history and workspace
 .Rhistory
 .RData
+
+# macOS folder metadata
 .DS_Store
-xDateR.Rproj
+
+# ShinyApps.io deployment metadata
 rsconnect/
-*.html
+
+# R output and compiled files
+*.Rout
+*.rdb
+*.rdx
+
+# Local environment variables (API keys, secrets, etc.)
+.Renviron
+
+# renv package manager files
+renv/
+renv.lock
