@@ -1,1 +1,6 @@
-There is a Warning: Error in seq.default: 'from' must be of length 1 thrown from the window length.
+When loading files warn the user if series are too short to be used
+
+Error handling when loading
+
+
+
