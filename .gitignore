@@ -22,3 +22,6 @@ rsconnect/
 # renv package manager files
 renv/
 renv.lock
+
+# debugging
+packrat/
