@@ -19,9 +19,7 @@ rsconnect/
 # Local environment variables (API keys, secrets, etc.)
 .Renviron
 
-# renv package manager files
-renv/
-renv.lock
-
-# debugging
-packrat/
+# renv - ignore the local library but keep the lockfile and activation script
+renv/library/
+renv/python/
+renv/staging/

@@ -28,14 +28,14 @@
 # Install any missing packages on startup. This is intentional for deployment
 # on shared servers where packages may not be pre-installed.
 
-list.of.packages <- c("shiny", "rmarkdown", "markdown", "dplR",
-                      "DT", "shinyjs", "shinyWidgets", "plotly",
-                      "tidyverse", "RColorBrewer", "kableExtra",
-                      "bslib", "bsicons")
-
-new.packages <- list.of.packages[!(list.of.packages %in%
-                                     installed.packages()[, "Package"])]
-if (length(new.packages)) install.packages(new.packages, dependencies = TRUE)
+# list.of.packages <- c("shiny", "rmarkdown", "markdown", "dplR",
+#                       "DT", "shinyjs", "shinyWidgets", "plotly",
+#                       "tidyverse", "RColorBrewer", "kableExtra",
+#                       "bslib", "bsicons")
+# 
+# new.packages <- list.of.packages[!(list.of.packages %in%
+#                                      installed.packages()[, "Package"])]
+# if (length(new.packages)) install.packages(new.packages, dependencies = TRUE)
 
 library(shiny)
 library(markdown)
