@@ -28,6 +28,7 @@
 # Install any missing packages on startup. This is intentional for deployment
 # on shared servers where packages may not be pre-installed.
 
+# uncomment for fresh install.
 # list.of.packages <- c("shiny", "rmarkdown", "markdown", "dplR",
 #                       "DT", "shinyjs", "shinyWidgets", "plotly",
 #                       "tidyverse", "RColorBrewer", "kableExtra",
