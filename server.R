@@ -302,7 +302,7 @@ shinyServer(function(session, input, output) {
             <circle cx="0" cy="210" r="20"  fill="#2C5F2E" opacity="0.5"/>
           </g>
           <line x1="0" y1="210" x2="420" y2="210" stroke="#2C5F2E" stroke-width="0.5"
-                opacity="0.15" stroke-dasharray="4 4"/>
+                opacity="0.5" stroke-dasharray="4 4"/>
           <text x="340" y="110" text-anchor="middle" font-family="sans-serif"
                 font-size="32" font-weight="500" fill="#2C5F2E" opacity="0.9">xDateR</text>
           <text x="340" y="148" text-anchor="middle" font-family="sans-serif"
@@ -329,7 +329,7 @@ shinyServer(function(session, input, output) {
                 font-weight="500" fill="#333">Edit and export</text>
           <text x="276" y="326" font-family="sans-serif" font-size="12"
                 fill="#888">Insert or delete rings, download corrected .rwl</text>
-          <rect x="238" y="356" width="264" height="32" rx="6"
+          <rect x="208" y="356" width="264" height="32" rx="6"
                 fill="#2C5F2E" opacity="0.08"/>
           <text x="340" y="377" text-anchor="middle" font-family="sans-serif"
                 font-size="12" fill="#2C5F2E">Or check "Use example data" to explore</text>
