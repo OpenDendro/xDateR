@@ -100,14 +100,25 @@ shinyServer(function(session, input, output) {
       shinyjs::hide("divSeriesSelector")
     }
     
-    # Undated series — Floater panel only, and only if dated file is loaded
-    if (tab == "UndatedSeriesTab" && !is.null(getRWL())) {
+    # Undated series div is handled by the observe() below so that it
+    # reacts to both tab changes AND dated file state changes (e.g.
+    # unchecking useDemoDated). Nothing to do here.
+  })
+  
+  # Undated sidebar section — separate observer so it reacts to BOTH
+  # tab changes and dated file state (getRWL() going NULL/non-NULL).
+  # If this lived only inside observeEvent(input$navbar), unchecking
+  # useDemoDated would leave divUndated visible because the navbar
+  # tab didn't change.
+  observe({
+    if (!is.null(input$navbar) &&
+        input$navbar == "UndatedSeriesTab" &&
+        !is.null(getRWL())) {
       shinyjs::show("divUndated")
     } else {
       shinyjs::hide("divUndated")
     }
   })
-  
   # ── File readers ───────────────────────────────────────────────────────────
   getRWL <- reactive({
     if (input$useDemoDated) {
@@ -940,13 +951,25 @@ shinyServer(function(session, input, output) {
       ))
     }
     
-    # State 2: dated file loaded but no undated file yet
+    # State 2: dated file loaded but no undated file yet.
+    # Show a summary of the dated file so the user can confirm it loaded
+    # correctly, plus a clear prompt to load the undated file.
+    # The decorative SVG is intentionally omitted here — it was designed
+    # for the empty welcome state and doesn't crop cleanly in this context.
     if (is.null(getRWLUndated())) {
       return(tagList(
-        div(style = "max-height: 380px; overflow: hidden;",
-            HTML(floaterSVG)
+        card(
+          fill = FALSE,
+          card_header(
+            "Dated File Summary",
+            tooltip(
+              bs_icon("question-circle"),
+              "Confirm your dated file loaded correctly before proceeding."
+            )
+          ),
+          rwlSummaryCard(rwlRV$dated)
         ),
-        div(style = "padding: 0.5rem 1rem;",
+        div(style = "padding: 0.5rem 0;",
             div(class = "alert alert-success mb-0",
                 bs_icon("check-circle"), " ",
                 tags$strong("Dated file loaded."),
