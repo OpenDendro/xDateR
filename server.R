@@ -994,25 +994,44 @@ shinyServer(function(session, input, output) {
     )
   })
   
-  # Dynamic controls inside the static plot containers
-  # Series selector and overlap slider — populated once undated file loads
+
   output$floaterControls <- renderUI({
     req(getRWLUndated())
+    # Subtract 20 years from the raw series length as a conservative approximation
+    # of the detrended series length — prewhitening and the Hanning filter both
+    # trim years from the ends of the series. Using the raw length as the max
+    # could allow values that exceed the detrended length and trigger an error
+    # in xdate.floater().
+    maxOverlap <- max(10, floor((sum(!is.na(rwlRV$undated[, input$series2])) - 20) / 10) * 10)
     div(
       selectInput(
         inputId  = "series2",
         label    = "Choose undated series",
         choices  = colnames(rwlRV$undated),
-        selected = colnames(rwlRV$undated)[1]
+        selected = input$series2  # preserve current selection to avoid circular reset
+      ),
+      tags$label(
+        "Minimum overlap (years)",
+        tooltip(
+          bs_icon("question-circle"),
+          paste("The minimum number of years the undated series must overlap with the",
+                "master chronology at a given position for a correlation to be calculated.",
+                "Positions with less overlap than this are excluded from the search.",
+                "Increase for more reliable correlations; decrease if your series is short",
+                "and the search range is being truncated too aggressively.")
+        )
       ),
       sliderInput(
         inputId = "minOverlapUndated",
-        label   = "Minimum overlap (years)",
-        value   = 50, min = 10, max = 200, step = 10
+        label   = NULL,
+        min     = 10,
+        max     = maxOverlap,
+        value   = min(50, maxOverlap),
+        step    = 10
       )
     )
   })
-  
+
   # CCF parameters — segment length, bin floor, pcrit
   output$floaterCCFParams <- renderUI({
     req(getRWLUndated())

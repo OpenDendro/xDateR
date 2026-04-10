@@ -569,7 +569,7 @@ panelEdit <- nav_panel(
   accordion(
     open = FALSE,
     accordion_panel(
-      title = "Instructions",
+      title = "How to use this panel",
       icon  = bs_icon("info-circle"),
       tags$ol(
         tags$li("Select a series in the sidebar (carry over from the Series panel)."),
@@ -726,6 +726,44 @@ panelFloater <- nav_panel(
   icon  = bs_icon("arrow-left-right"),
   value = "UndatedSeriesTab",
   
+  # ── How to use this panel ─────────────────────────────────────────────
+  accordion(
+    open = FALSE,
+    accordion_panel(
+      title = "How to use this panel",
+      icon  = bs_icon("info-circle"),
+      p("This panel dates undated series by sliding them against a",
+        "dated master chronology using", tags$code("xdate.floater()"), "— a function",
+        "currently in development in dplR. The function computes the",
+        "correlation between the undated series and the master at every possible",
+        "position, identifying the best-fit date range."),
+      p("To get started:"),
+      tags$ol(
+        tags$li("Load a dated", tags$strong(".rwl file"), "using the Dated Series upload in the sidebar."),
+        tags$li("Navigate to this panel — the", tags$strong("Undated Series"),
+                "upload will then appear in the sidebar."),
+        tags$li("Upload your undated", tags$strong(".rwl file"), "and select a series from the dropdown."),
+        tags$li("Review the", tags$strong("Best-Fit Dating"), "plot: the top panel shows the undated",
+                "series (green) placed at its best-fit position against the master; the bottom panel",
+                "shows the correlation at each candidate end year. The light blue band is the",
+                "5th\u201395th percentile of typical interseries correlation in the master \u2014",
+                "ideally the series peak should fall well within or above this band."),
+        tags$li("Check the", tags$strong("Cross-Correlation by Segment"), "plot: a clean peak at",
+                "lag 0 supports the proposed dating. A peak at lag \u00b11 or \u00b12 suggests the",
+                "dates may still be off by that many years."),
+        tags$li("If satisfied, click", tags$strong("Save These Dates"), "then repeat for other",
+                "series as needed."),
+        tags$li("Click", tags$strong("Download dated .rwl"), "to export. Optionally append the",
+                "master chronology to the output file.")
+      ),
+      p(helpText("The Floater panel uses its own Segment Length, Bin Floor, and P crit controls",
+                 "(visible once an undated file is loaded) as a way of looking at lagged correlations",
+                 "given the best matched dates for the floating series. This gives the user",
+                 "an idea of not only the best match overall but helps them think about possible",
+                 "dating issues within the flaoter itself."))
+    )
+  ),
+  
   # The welcome/prompt states are rendered dynamically.
   # Plot containers must be static so Shiny can bind renderPlot to them —
   # dynamic plotOutput inside renderUI breaks the output binding.
@@ -744,9 +782,10 @@ panelFloater <- nav_panel(
             bs_icon("question-circle"),
             paste("The selected series is slid along the master chronology to find",
                   "the best-fit position. Top panel: the series (green) shown with",
-                  "the master at the best-fit dates. Bottom panel: correlation by",
-                  "end year. The blue band shows the 5th-95th percentile of typical",
-                  "interseries correlation in the master — the series should ideally",
+                  "as a segment at the best-fit dates. Bottom panel: correlation",
+                  "(at end year) of the undated series at all possible locations.",
+                  "The blue band shows the 5th-95th percentile of the",
+                  "interseries correlation in the master — the undated series should",
                   "fall within this band. The dark blue line is the median interseries",
                   "correlation; the dashed black line is the significance threshold.")
           )
