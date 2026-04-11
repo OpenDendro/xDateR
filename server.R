@@ -19,7 +19,8 @@ shinyServer(function(session, input, output) {
     datedVault     = NULL,
     undatedVault   = NULL,
     undated2dated  = NULL,
-    dateLog        = NULL
+    dateLog        = NULL,
+    readError      = NULL   # set by tryCatch in getRWL(); displayed on Overview
   )
   
   # ── Helper: resolve n input ────────────────────────────────────────────────
@@ -121,12 +122,21 @@ shinyServer(function(session, input, output) {
   })
   # ── File readers ───────────────────────────────────────────────────────────
   getRWL <- reactive({
+    rwlRV$readError <- NULL   # clear any previous error on each attempt
     if (input$useDemoDated) {
       return(read.rwl("data/xDateRtest.rwl"))
     }
     inFile <- input$file1
     if (is.null(inFile)) return(NULL)
-    read.rwl(inFile$datapath)
+    # Use try() rather than tryCatch() — more reliable for catching base R
+    # errors (e.g. from scan()) that fire deep inside dplR's read.rwl().
+    result <- try(read.rwl(inFile$datapath), silent = TRUE)
+    if (inherits(result, "try-error")) {
+      # Strip the "Error in ... :" prefix that try() prepends
+      rwlRV$readError <- trimws(gsub("^Error.*?:\n", "", as.character(result)))
+      return(NULL)
+    }
+    result
   })
   
   getRWLUndated <- reactive({
@@ -172,34 +182,115 @@ shinyServer(function(session, input, output) {
     )
   })
   
-  # ── Update window sliders when series or data changes ─────────────────────
-  # winCenter and rangeCCF are dynamic because their min/max depend on the
-  # extent of the selected series, which changes when the series selector or
-  # the data itself changes.
+  # ── Update window sliders when series, data, or window controls change ───────
+  # winCenter and winWidth are mutually constrained:
+  #
+  #   winWidth max  = min(100, 2 * min(center - seriesStart, seriesEnd - center))
+  #     capped at 100 (skeleton plot is unreadable beyond that) and can never
+  #     push the window off either end of the series.
+  #
+  #   winCenter min/max = seriesStart + winWidth/2  ..  seriesEnd - winWidth/2
+  #     the centre must be far enough from both ends to fit a half-width.
+  #
+  # Both sliders share one observer so they stay consistent. Current values are
+  # preserved where still within the new bounds, and clamped otherwise.
+  # lagCCF fallback guards against NULL on first fire.
   observeEvent({
     input$series
     filteredRWL()
+    input$winCenter
+    input$winWidth
   }, {
     req(input$series, rwlRV$dated)
-    dat     <- rwlRV$dated
-    tmp     <- summary(dat)
-    winBnds <- as.numeric(tmp[tmp$series == input$series, 2:3])
-    minWin  <- round(winBnds[1] + input$lagCCF, -1)
-    maxWin  <- round(winBnds[2] - input$lagCCF, -1)
+    dat    <- rwlRV$dated
+    tmp    <- summary(dat)
+    lag    <- if (!is.null(input$lagCCF) && !is.na(input$lagCCF)) input$lagCCF else 5
+    sBnds  <- as.numeric(tmp[tmp$series == input$series, 2:3])
+    sStart <- sBnds[1]
+    sEnd   <- sBnds[2]
     
-    output$winCenter <- renderUI({
-      sliderInput("winCenter", "Window Center",
-                  min   = minWin + 30, max = maxWin - 30,
-                  value = round(mean(winBnds), -1),
-                  step  = 5, sep = "")
-    })
+    # rangeCCF (Series panel) -- unaffected by winWidth
+    minWin <- round(sStart + lag, -1)
+    maxWin <- round(sEnd   - lag, -1)
     output$rangeCCF <- renderUI({
       sliderInput("rangeCCF", "Adjust plotted years",
                   min       = minWin, max = maxWin,
                   value     = c(minWin, maxWin),
-                  step      = 5, sep = "", dragRange = TRUE)
+                  step      = 5, sep = "", dragRange = TRUE,
+                  ticks     = FALSE)
     })
+    
+    # Current slider values with sensible defaults on first load
+    curCenter <- if (!is.null(input$winCenter) && !is.na(input$winCenter)) {
+      input$winCenter
+    } else {
+      round(mean(sBnds), -1)
+    }
+    curWidth <- if (!is.null(input$winWidth) && !is.na(input$winWidth)) {
+      input$winWidth
+    } else {
+      40
+    }
+    
+    # winWidth bounds: largest window that fits around curCenter, capped at 100
+    halfRoom <- min(curCenter - sStart, sEnd - curCenter)
+    maxWidth <- max(10, min(100, floor(halfRoom / 10) * 10 * 2))
+    curWidth <- min(curWidth, maxWidth)
+    
+    # winCenter bounds: centre must fit half-width from each end
+    halfWidth <- curWidth / 2
+    minCenter <- round(sStart + halfWidth, -1)
+    maxCenter <- round(sEnd   - halfWidth, -1)
+    if (minCenter >= maxCenter) {
+      minCenter <- round(sStart, -1)
+      maxCenter <- round(sEnd,   -1)
+    }
+    curCenter <- max(minCenter, min(maxCenter, curCenter))
+    
+    output$winCenter <- renderUI({
+      sliderInput("winCenter", "Window Center",
+                  min   = minCenter, max = maxCenter,
+                  value = curCenter,
+                  step  = 5, sep = "",
+                  ticks = FALSE)
+    })
+  }, ignoreNULL = TRUE)
+  
+  # ── winWidth.ui: dynamic window width slider ───────────────────────────────
+  # Registered as a top-level renderUI (not inside the observer) so that
+  # outputOptions(suspendWhenHidden = FALSE) can reference it at startup.
+  # Reads input$series, input$winCenter, and rwlRV$dated as reactive deps
+  # so it still updates whenever any of those change.
+  # max = min(100, largest even window that fits around curCenter)
+  # default = min(40, max)
+  output$winWidth.ui <- renderUI({
+    if (is.null(rwlRV$dated) || is.null(input$series) || input$series == "") {
+      sliderInput("winWidth", "Window width (years)",
+                  min = 10, max = 100, value = 40, step = 10, ticks = FALSE)
+    } else {
+      dat    <- rwlRV$dated
+      tmp    <- summary(dat)
+      sBnds  <- as.numeric(tmp[tmp$series == input$series, 2:3])
+      sStart <- sBnds[1]
+      sEnd   <- sBnds[2]
+      curCenter <- if (!is.null(input$winCenter) && !is.na(input$winCenter)) {
+        input$winCenter
+      } else {
+        round(mean(sBnds), -1)
+      }
+      halfRoom <- min(curCenter - sStart, sEnd - curCenter)
+      maxWidth <- max(10, min(100, floor(halfRoom / 10) * 10 * 2))
+      curWidth <- if (!is.null(input$winWidth) && !is.na(input$winWidth)) {
+        min(input$winWidth, maxWidth)
+      } else {
+        min(40, maxWidth)
+      }
+      sliderInput("winWidth", "Window width (years)",
+                  min = 10, max = maxWidth, value = curWidth,
+                  step = 10, ticks = FALSE)
+    }
   })
+  outputOptions(output, "winWidth.ui", suspendWhenHidden = FALSE)
   
   # ── filteredRWL ────────────────────────────────────────────────────────────
   # The master chronology used by all correlation functions. Recomputes when
@@ -221,11 +312,126 @@ shinyServer(function(session, input, output) {
     res
   })
   
+  # ── rwlStats: derived series-length stats used by dynamic widgets ─────────
+  # Computed once from filteredRWL() and shared by seg.length.ui, winWidth.ui,
+  # and any future widgets that need to be bounded by the data dimensions.
+  # minLen: min series length rounded down to nearest 10 (minimum 10).
+  #   Used as the seg.length max — any series shorter than the segment length
+  #   will produce zero-length bins and crash corr.rwl.seg().
+  # seriesLengths: named integer vector of non-NA measurements per series.
+  rwlStats <- reactive({
+    req(filteredRWL())
+    dat     <- rwlRV$dated
+    lengths <- colSums(!is.na(dat))
+    minLen  <- max(10, floor(min(lengths) / 10) * 10)
+    list(minLen = minLen, seriesLengths = lengths)
+  })
+  
+  # ── seg.length.ui: dynamic segment length slider ───────────────────────────
+  # max  = min series length rounded down to nearest 10 — prevents any series
+  #        being shorter than the segment, which crashes corr.rwl.seg().
+  # default = min(50, minLen)
+  # suspendWhenHidden = FALSE ensures the slider renders even when the
+  # Analysis Parameters accordion is closed, so input$seg.length is never NULL.
+  output$seg.length.ui <- renderUI({
+    if (is.null(rwlRV$dated)) {
+      sliderInput("seg.length", "Segment Length",
+                  min = 10, max = 100, value = 50, step = 10, ticks = FALSE)
+    } else {
+      ml      <- rwlStats()$minLen
+      maxSeg  <- max(10, ml)
+      defSeg  <- min(50, maxSeg)
+      sliderInput("seg.length", "Segment Length",
+                  min = 10, max = maxSeg, value = defSeg, step = 10,
+                  ticks = FALSE)
+    }
+  })
+  outputOptions(output, "seg.length.ui", suspendWhenHidden = FALSE)
+  
+  # ── rwlQA: tiered data quality check ──────────────────────────────────────
+  # Depends on rwlRV$dated and input$seg.length. Returns a list:
+  #   tier    — 0 = ok, 1 = hard block, 2 = soft warning, 3 = advisory
+  #   message — plain-language explanation for the user
+  #   short   — character vector of series names that are too short (tier 2)
+  #
+  # Tier 1 (hard block): fewer than 5 series OR all series shorter than seg.length
+  # Tier 2 (soft warn):  some (not all) series shorter than 1.5 * seg.length
+  # Tier 3 (advisory):   mean series length < 3 * seg.length
+  rwlQA <- reactive({
+    req(rwlRV$dated, input$seg.length)
+    dat     <- rwlRV$dated
+    segLen  <- input$seg.length
+    lengths <- colSums(!is.na(dat))
+    nSeries <- ncol(dat)
+    
+    # Tier 1 checks
+    if (nSeries < 5) {
+      return(list(
+        tier    = 1,
+        message = paste0(
+          "This file has only ", nSeries, " series. Statistical crossdating ",
+          "requires at least 5 series to build a meaningful master chronology. ",
+          "Please load a file with more series."
+        ),
+        short   = character(0)
+      ))
+    }
+    if (all(lengths < segLen)) {
+      return(list(
+        tier    = 1,
+        message = paste0(
+          "All series are shorter than the current segment length (", segLen,
+          " years). No correlations can be computed. Try reducing the segment ",
+          "length in the Analysis Parameters, or load a file with longer series."
+        ),
+        short   = character(0)
+      ))
+    }
+    
+    # Tier 2 check
+    shortNames <- names(lengths[lengths < 1.5 * segLen])
+    if (length(shortNames) > 0) {
+      return(list(
+        tier    = 2,
+        message = paste0(
+          length(shortNames), " series ",
+          if (length(shortNames) == 1) "is" else "are",
+          " too short for reliable crossdating at the current segment length (",
+          segLen, " years): ",
+          paste(shortNames, collapse = ", "),
+          ". Consider removing ",
+          if (length(shortNames) == 1) "it" else "them",
+          " using the filter on the Correlations panel, or reducing the segment length."
+        ),
+        short   = shortNames
+      ))
+    }
+    
+    # Tier 3 check
+    meanLen <- mean(lengths)
+    if (meanLen < 3 * segLen) {
+      return(list(
+        tier    = 3,
+        message = paste0(
+          "Mean series length (", round(meanLen, 0), " years) is short relative ",
+          "to the segment length (", segLen, " years). Correlations may have ",
+          "low statistical power."
+        ),
+        short   = character(0)
+      ))
+    }
+    
+    list(tier = 0, message = "", short = character(0))
+  })
+  
   # ── getCRS ─────────────────────────────────────────────────────────────────
   # Runs corr.rwl.seg() on the current master. All correlation panels read
   # from this single reactive so parameter changes propagate everywhere.
   getCRS <- reactive({
-    req(rwlRV$dated)
+    req(rwlRV$dated, input$seg.length)
+    # Hard block: do not attempt computation if data fail QA tier 1
+    qa <- rwlQA()
+    if (qa$tier == 1) return(NULL)
     corr.rwl.seg(
       rwlRV$dated,
       seg.length = input$seg.length,
@@ -289,7 +495,7 @@ shinyServer(function(session, input, output) {
   # placeholder — it requires its own output$rwlSummaryHeader renderUI below.
   # Nested uiOutputs always need their own registered render calls.
   output$overviewUI <- renderUI({
-    if (is.null(getRWL())) {
+    if (is.null(getRWL()) && is.null(rwlRV$readError)) {
       
       # ── Welcome state ────────────────────────────────────────────────────
       HTML('
@@ -350,7 +556,41 @@ shinyServer(function(session, input, output) {
     } else {
       
       # ── Data loaded state ────────────────────────────────────────────────
+      # Build alert list — only non-NULL elements are included in tagList
+      readErrAlert <- if (!is.null(rwlRV$readError)) {
+        div(class = "alert alert-danger",
+            bs_icon("x-circle"), " ",
+            tags$strong("File could not be read."),
+            " dplR's ", tags$code("read.rwl()"), " returned the following error:",
+            tags$pre(class = "mt-2 mb-1", style = "font-size:0.85em;",
+                     rwlRV$readError),
+            "Please open a plain R session, load dplR, and run ",
+            tags$code('read.rwl("your-file.rwl")'),
+            " to diagnose the problem. Fix the file and then reload it here."
+        )
+      }
+      qaAlert <- if (!is.null(rwlRV$dated) && !is.null(input$seg.length)) {
+        qa <- rwlQA()
+        if (qa$tier == 1) {
+          div(class = "alert alert-danger mb-2",
+              bs_icon("x-circle"), " ",
+              tags$strong("Data cannot be crossdated statistically. "),
+              qa$message)
+        } else if (qa$tier == 2) {
+          div(class = "alert alert-warning mb-2",
+              bs_icon("exclamation-triangle"), " ",
+              tags$strong("Some series are too short. "),
+              qa$message)
+        } else if (qa$tier == 3) {
+          div(class = "alert alert-info mb-2",
+              bs_icon("info-circle"), " ",
+              tags$strong("Note: "),
+              qa$message)
+        }
+      }
       tagList(
+        readErrAlert,
+        qaAlert,
         card(
           fill = FALSE,
           card_header(
@@ -439,6 +679,25 @@ shinyServer(function(session, input, output) {
     }
   )
   
+  
+  # ── qaAlertCorr: QA banner for the Correlations panel ────────────────────
+  # Shows tier 2 and tier 3 alerts at the top of the Correlations panel.
+  # Tier 1 is not shown here — getCRS() is already blocked so nothing renders.
+  output$qaAlertCorr <- renderUI({
+    req(rwlRV$dated, input$seg.length)
+    qa <- rwlQA()
+    if (qa$tier == 2) {
+      div(class = "alert alert-warning",
+          bs_icon("exclamation-triangle"), " ",
+          tags$strong("Some series are too short. "),
+          qa$message)
+    } else if (qa$tier == 3) {
+      div(class = "alert alert-info",
+          bs_icon("info-circle"), " ",
+          tags$strong("Note: "),
+          qa$message)
+    }
+  })
   
   # ════════════════════════════════════════════════════════════════════════════
   # CORRELATIONS
@@ -654,7 +913,7 @@ shinyServer(function(session, input, output) {
   
   # Skeleton / CCF plot: xskel.ccf.plot() centred on the current window
   output$xskelPlot <- renderPlot({
-    req(filteredRWL(), input$series, input$winCenter)
+    req(filteredRWL(), input$series, input$winCenter, input$winWidth)
     wStart <- input$winCenter - (input$winWidth / 2)
     xskel.ccf.plot(
       rwlRV$dated,
@@ -899,17 +1158,6 @@ shinyServer(function(session, input, output) {
             opacity="0.5" stroke-dasharray="3 2" marker-end="url(#arr-green)"/>
       <line x1="492" y1="181" x2="508" y2="181" stroke="#2C5F2E" stroke-width="1.5"
             opacity="0.5" stroke-dasharray="3 2" marker-end="url(#arr-green)"/>
-      <text x="40" y="225" font-family="sans-serif" font-size="12" fill="#888">Correlation at each position</text>
-      <line x1="40" y1="310" x2="640" y2="310" stroke="#eee" stroke-width="1"/>
-      <line x1="40" y1="240" x2="40"  y2="315" stroke="#eee" stroke-width="1"/>
-      <polyline fill="none" stroke="#ccc" stroke-width="1.5"
-        points="40,306 80,305 120,304 160,305 200,304 240,305 268,305
-                290,302 310,298 330,288 350,270 368,252 378,238 388,252
-                400,270 418,286 440,300 470,304 510,305 550,304 590,305 640,306"/>
-      <circle cx="378" cy="238" r="5" fill="#2C5F2E" opacity="0.8"/>
-      <line x1="378" y1="243" x2="378" y2="310" stroke="#2C5F2E" stroke-width="1"
-            stroke-dasharray="3 2" opacity="0.4"/>
-      <text x="390" y="236" font-family="sans-serif" font-size="11" fill="#2C5F2E">best fit</text>
     </svg>'
   
   # ── floaterUI: three-state panel ──────────────────────────────────────────
@@ -994,7 +1242,7 @@ shinyServer(function(session, input, output) {
     )
   })
   
-
+  
   output$floaterControls <- renderUI({
     req(getRWLUndated())
     # Subtract 20 years from the raw series length as a conservative approximation
@@ -1027,11 +1275,12 @@ shinyServer(function(session, input, output) {
         min     = 10,
         max     = maxOverlap,
         value   = min(50, maxOverlap),
-        step    = 10
+        step    = 10,
+        ticks = FALSE
       )
     )
   })
-
+  
   # CCF parameters — segment length, bin floor, pcrit
   output$floaterCCFParams <- renderUI({
     req(getRWLUndated())
@@ -1040,7 +1289,8 @@ shinyServer(function(session, input, output) {
       sliderInput(
         inputId = "seg.lengthUndated",
         label   = "Segment Length",
-        min = 10, max = 200, value = 50, step = 10
+        min = 10, max = 100, value = 50, step = 10,
+        ticks=FALSE
       ),
       selectInput(
         inputId  = "bin.floorUndated",

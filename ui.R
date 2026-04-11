@@ -72,18 +72,28 @@ sharedParams <- function() {
         icon  = bs_icon("sliders"),
         
         # Segment length: length of the correlation window in years.
-        # Typical values are 50 (default) or 100 years.
-        sliderInput(
-          inputId = "seg.length",
-          label   = "Segment Length",
-          min = 10, max = 200, value = 50, step = 10
-        ),
+        # Rendered dynamically in server.R so max is bounded by mean series
+        # length of the loaded data, and default is min(50, mean series length).
+        uiOutput("seg.length.ui"),
         
-        # Bin floor: anchor year for the first bin. 0 = start of data,
-        # 10/50/100 = round to nearest decade/half-century/century.
+        tags$label(
+          "Bin Floor",
+          tooltip(
+            bs_icon("question-circle"),
+            paste(
+              "Sets the anchor year for segment boundaries.",
+              "With a bin floor of 10, segments align to years ending in 10",
+              "(e.g. 1510\u20131560, 1560\u20131610). With 0, segments start from",
+              "the first year of data with no rounding.",
+              "Changing this shifts where bin edges fall, which can slightly",
+              "affect correlation values. Use the same bin floor across analyses",
+              "to keep results comparable."
+            )
+          )
+        ),
         selectInput(
           inputId  = "bin.floor",
-          label    = "Bin Floor",
+          label    = NULL,
           choices  = c(0, 10, 50, 100),
           selected = 10
         ),
@@ -280,6 +290,9 @@ panelCorrelations <- nav_panel(
   title = "Correlations",
   icon  = bs_icon("grid-3x3"),
   value = "AllSeriesTab",
+  
+  # QA alert banner — rendered in server.R, shown for tier 2/3 data issues
+  uiOutput("qaAlertCorr"),
   
   # ── How to use this panel ─────────────────────────────────────────────
   accordion(
@@ -605,11 +618,7 @@ panelEdit <- nav_panel(
     layout_columns(
       col_widths = c(6, 6),
       uiOutput("winCenter"),
-      sliderInput(
-        inputId = "winWidth",
-        label   = "Window width (years)",
-        value   = 40, min = 10, max = 80, step = 10
-      )
+      uiOutput("winWidth.ui")
     )
   ),
   
