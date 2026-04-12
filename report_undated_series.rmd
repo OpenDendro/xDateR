@@ -51,15 +51,16 @@ kable(tab2) %>%
 ```
 
 
-###Floater Report
-Series Name: `r floaterObject$series.name` 
+### Floater Results
 
-Years searched `r min(floaterCorStats$first)` to  `r max(floaterCorStats$last)`
+Series Name: `r floaterObject$series.name`
 
-Highest overall correlation for series is `round(rBest,2)` with dates `firstBest` to `lastBest`
+Years searched: `r min(floaterCorStats$first)` to `r max(floaterCorStats$last)`
+
+Highest overall correlation: `r round(rBest, 2)` with dates `r firstBest` to `r lastBest`
 
 ```{r, echo=FALSE}
- plot.floater(floaterObject)
+plot.floater(floaterObject)
 ```
 
 ```{r, echo=FALSE}
@@ -88,6 +89,19 @@ ccfObject <- ccf.series.rwl(dat,
 
 `r undatedParams$datingNotes`
 
-###R Code
+### R Code
 
-Reproducible R code is not available yet. The crossdating function `xdate.floater` will be included in the next `dplR` release.
+```
+library(dplR)
+rwl    <- read.rwl("`r fname1`")
+undated <- read.rwl("`r fname2`")
+fo <- xdate.floater(rwl,
+                    series      = undated[, "`r floaterObject$series.name`"],
+                    series.name = "`r floaterObject$series.name`",
+                    min.overlap = `r undatedParams$seg.length`,
+                    prewhiten   = `r undatedParams$prewhiten`,
+                    biweight    = `r undatedParams$biweight`,
+                    method      = "`r undatedParams$method`",
+                    make.plot   = TRUE,
+                    verbose     = TRUE)
+```

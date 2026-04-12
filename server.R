@@ -1,4 +1,4 @@
-source("xdate.floater.R")
+source("plot.floater.R")
 source("plotlyCRSFunc.R")
 
 shinyServer(function(session, input, output) {
@@ -58,8 +58,8 @@ shinyServer(function(session, input, output) {
                           " (", round(rpt$sdInterSeriesCor, 3), ")")),
       list(label = "Mean AR1 (SD)",
            value = paste0(round(rpt$meanAR1, 3),
-                          " (", round(rpt$sdAR1, 3), ")")),
-      list(label = "Unconnected floaters",     value = unconnectedStr)
+                          " (", round(rpt$sdAR1, 3), ")"))
+      #list(label = "Unconnected floaters",     value = unconnectedStr)
     )
     
     rows <- lapply(items, function(item) {
@@ -446,14 +446,15 @@ shinyServer(function(session, input, output) {
   })
   
   # ── getFloater ─────────────────────────────────────────────────────────────
-  # Runs xdate.floater() for the selected undated series. The floater panel
-  # has its own parameter inputs (seg.lengthUndated etc.) because floater
+  # Runs dplR::xdate.floater() for the selected undated series. The floater
+  # panel has its own parameter inputs (seg.lengthUndated etc.) because floater
   # analysis is typically run with different settings than the main crossdating.
+  # make.plot = FALSE and verbose = FALSE because the app handles display itself.
   getFloater <- reactive({
     req(filteredRWL(), input$series2, rwlRV$undated,
         input$minOverlapUndated)
     series2date <- rwlRV$undated[, input$series2]
-    xdate.floater(
+    fo <- dplR::xdate.floater(
       rwl         = filteredRWL(),
       series      = series2date,
       series.name = input$series2,
@@ -462,8 +463,15 @@ shinyServer(function(session, input, output) {
       prewhiten   = TRUE,
       biweight    = TRUE,
       method      = "spearman",
+      make.plot   = FALSE,
+      verbose     = FALSE,
       return.rwl  = TRUE
     )
+    if (is.null(names(fo))) {
+      names(fo) <- c("floaterCorStats", "rwlCombined")
+    }
+    fo$series.name <- input$series2
+    fo
   })
   
   # ── getSeries4Editing ──────────────────────────────────────────────────────
@@ -1323,6 +1331,9 @@ shinyServer(function(session, input, output) {
   output$floaterText <- renderText({
     req(getRWLUndated(), getFloater())
     fo    <- getFloater()
+    cat("here \n")
+    cat(names(fo), "\n")
+    cat(str(fo), "\n")
     fcs   <- fo$floaterCorStats
     rBest <- which.max(fcs$r)
     paste0("Series: ", fo$series.name, "<br/>",
@@ -1410,7 +1421,7 @@ shinyServer(function(session, input, output) {
     }
   )
   
-  # Report: reproducible code not yet available (xdate.floater not on CRAN)
+  # Report: floater analysis report
   output$undatedReport <- downloadHandler(
     filename = "undated_series_report.html",
     content  = function(file) {
