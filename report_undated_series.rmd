@@ -1,28 +1,46 @@
 ---
-title: "Report: Individual Series Correlations"
+title: "Report: Dating a Floating Series"
 output: html_document
 params:
   fileName1: NA
   fileName2: NA
   floaterObject: NA
-  undatedParams: NA
+  xdParams: NA
+  ccfArgs: NA
+  floaterSegs: NA
+  minOverlap: NA
+  excluded: NA
+  editDF: NA
+  editCode: NA
+  datingNotes: NA
+  dateLog: NA
+  helpers: NA
 ---
 
-```{r,echo=FALSE}
-library(DT)
+```{r setup, echo=FALSE, message=FALSE}
+library(dplR)
 library(knitr)
 library(kableExtra)
-undatedParams <- params$undatedParams
+source(params$helpers)
+source(file.path(dirname(params$helpers), "plot.floater.R"))
+p             <- params$xdParams
+ccfArgs       <- params$ccfArgs
+excluded      <- params$excluded
 floaterObject <- params$floaterObject
-floaterCorStats <- floaterObject$floaterCorStats
-rBest <- which.max(floaterCorStats$r)
-firstBest <- floaterCorStats$first[rBest]
-lastBest <- floaterCorStats$last[rBest]
-rBest <- floaterCorStats$r[rBest]
-pBest <- floaterCorStats$p[rBest]
+fcs           <- floaterObject$floaterCorStats
+iBest         <- which.max(fcs$r)
+firstBest     <- fcs$first[iBest]
+lastBest      <- fcs$last[iBest]
+rBest         <- fcs$r[iBest]
 
-fname1 <- ifelse(is.null(params$fileName1),yes = "Demo Data",no = params$fileName1)
-fname2 <- ifelse(is.null(params$fileName2),yes = "Demo Data",no = params$fileName2)
+fname1 <- if (is.null(params$fileName1)) "Demo Data" else params$fileName1
+fname2 <- if (is.null(params$fileName2)) "Demo Data" else params$fileName2
+notes  <- if (is.null(params$datingNotes) || params$datingNotes == "") {
+  "No dating notes entered."
+} else params$datingNotes
+flArgs <- c(normArgs, "method")
+ed     <- params$editDF
+edited <- nrow(ed) > 0
 ```
 
 ### Date: `r Sys.Date()`
@@ -31,22 +49,24 @@ fname2 <- ifelse(is.null(params$fileName2),yes = "Demo Data",no = params$fileNam
 
 ### Undated File: `r fname2`
 
+`r if (edited) paste0("**Edits:** the dated data include ", nrow(ed), " edit(s) made in xDateR, listed in the edit report. The R code below replays them before the analysis.")`
+
+`r if (any(c(fname1, fname2) %in% c("xDateRtest.rwl", "xDateRtestUndated.rwl"))) "The example data are in the data folder of the xDateR repository: https://github.com/OpenDendro/xDateR"`
+
+`r if (length(excluded) > 0) paste0("**Series left out of the master:** ", paste(excluded, collapse = ", "), ".")`
+
 #### Selected Series: `r floaterObject$series.name`
 
 #### Arguments:
 
 ```{r,echo=FALSE}
-tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
-                               "prewhiten","pcrit","biweight",
-                               "method"),
-                   Value=c(undatedParams$seg.length,
-                           undatedParams$bin.floor,
-                           undatedParams$n, 
-                           undatedParams$prewhiten, 
-                           undatedParams$pcrit, 
-                           undatedParams$biweight,
-                           undatedParams$method))
-kable(tab2) %>%
+fmt <- function(v) if (is.null(v)) "NULL" else as.character(v)
+tab2 <- data.frame(
+  Parameter = c("min.overlap", flArgs,
+                paste(names(ccfArgs), "(cross-correlation)")),
+  Value     = c(params$minOverlap, vapply(p[flArgs], fmt, ""),
+                vapply(ccfArgs, fmt, "")))
+kable(tab2, row.names = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
@@ -55,53 +75,115 @@ kable(tab2) %>%
 
 Series Name: `r floaterObject$series.name`
 
-Years searched: `r min(floaterCorStats$first)` to `r max(floaterCorStats$last)`
+Years searched: `r min(fcs$first)` to `r max(fcs$last)`
 
 Highest overall correlation: `r round(rBest, 2)` with dates `r firstBest` to `r lastBest`
 
+`r if (!isTRUE(floaterObject$isBest)) paste0("**Position used: ", floaterObject$first, " to ", floaterObject$last, "**, ", if (is.na(floaterObject$r)) "entered by hand. It could not be checked against the master: there the series overlaps it too little, or not at all, for a correlation." else paste0("chosen by the user (r = ", round(floaterObject$r, 2), "), not the best fit."))`
+
 ```{r, echo=FALSE}
-plot.floater(floaterObject)
+plot.floater(floaterObject, params = p)
 ```
 
 ```{r, echo=FALSE}
-
-dat <- floaterObject$rwlCombined
-if(undatedParams$n=="NULL"){
-  n <- NULL
+# computed by dplR; drawn with the app's plotCCF() (dplR's own plot code,
+# segments in time order), as on the Floater panel
+source(file.path(dirname(params$helpers), "plotCCF.R"))
+segs      <- params$floaterSegs
+checkable <- !is.null(segs)   # FALSE for a hand-entered position with too little overlap
+if (checkable) {
+  ccfObject <- suppressMessages(do.call(ccf.series.rwl, c(
+    list(rwl = floaterObject$rwlCombined, series = floaterObject$series.name),
+    ccfArgs, p[normArgs], list(make.plot = FALSE))))
+  plotCCF(ccfObject, pcrit = ccfArgs$pcrit)
 }
-if(undatedParams$n!="NULL"){
-  n <- as.numeric(undatedParams$n)
-}
-
-ccfObject <- ccf.series.rwl(dat, 
-                            series = floaterObject$series.name, 
-                            seg.length = undatedParams$seg.length, 
-                            bin.floor = as.numeric(undatedParams$bin.floor),
-                            n = n,
-                            prewhiten = undatedParams$prewhiten, 
-                            pcrit = undatedParams$pcrit,
-                            biweight = undatedParams$biweight, 
-                            method = undatedParams$method,
-                            make.plot=TRUE)
 ```
 
-###Dating Notes
+### Candidate positions
 
-`r undatedParams$datingNotes`
+```{r, echo=FALSE}
+cand <- floaterCandidates(fcs)
+kable(data.frame(Years = paste0(cand$first, "-", cand$last), r = round(cand$r, 3),
+                 Overlap = cand$n), row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE, position = "left")
+```
+
+`r if (nrow(cand) > 1 && cand$r[1] - cand$r[2] < 0.1) "**Ambiguous:** the two best positions correlate almost equally well."`
+
+### Segments at the dates used
+
+```{r, echo=FALSE, results="asis"}
+if (checkable) {
+  f    <- crsFlagged(segs)
+  runs <- lagRuns(f, crsTested(segs))
+  cat(if (length(runs) == 0) "Every segment fits best where dated (lag search to +/-" else
+        paste0(paste(runs, collapse = " "), " (lag search to +/-"),
+      segs$lag.max, " years).\n", sep = "")
+} else {
+  cat("The position used could not be tested segment by segment: the series overlaps the master too little there.\n")
+}
+```
+
+```{r, echo=FALSE, eval=checkable}
+okb <- !is.na(segs$spearman.rho[1, ])
+lg  <- segs$best.lag[1, okb]
+tab <- data.frame(Segment = sprintf("%g-%g", segs$bins[okb, 1], segs$bins[okb, 2]),
+                  r = round(segs$spearman.rho[1, okb], 3),
+                  Flag = ifelse(is.na(m <- match(segs$bins[okb, 1], f$from)), "",
+                                ifelse(f$weak[m], "B (weak)", f$flag[m])),
+                  Lag = ifelse(lg == 0, "", sprintf("%+d", as.integer(lg))),
+                  Gain = ifelse(lg == 0, NA, round(segs$best.rho[1, okb] - segs$spearman.rho[1, okb], 3)))
+kable(tab, row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE, position = "left")
+```
+
+### Dating Notes
+
+`r notes`
+
+### Date Log
+
+```{r, echo=FALSE, comment=""}
+if (!is.null(params$dateLog)) writeLines(params$dateLog)
+```
 
 ### R Code
 
-```
-library(dplR)
-rwl    <- read.rwl("`r fname1`")
-undated <- read.rwl("`r fname2`")
-fo <- xdate.floater(rwl,
-                    series      = undated[, "`r floaterObject$series.name`"],
-                    series.name = "`r floaterObject$series.name`",
-                    min.overlap = `r undatedParams$seg.length`,
-                    prewhiten   = `r undatedParams$prewhiten`,
-                    biweight    = `r undatedParams$biweight`,
-                    method      = "`r undatedParams$method`",
-                    make.plot   = TRUE,
-                    verbose     = TRUE)
+```{r, echo=FALSE, comment=""}
+s <- floaterObject$series.name
+cat(
+  paste(dataCode(fname1, ed, params$editCode), collapse = "\n"), '\n',
+  'rwl     <- dat\n',  # the dated master, with any edits
+  if (length(excluded) > 0) paste0(
+    '# series left out of the master\n',
+    'rwl     <- rwl[, setdiff(names(rwl), ', vecCode(excluded), '), drop = FALSE]\n'),
+  'undated <- read.rwl("', fname2, '")\n',
+  'fo <- xdate.floater(rwl,\n    series = undated[, "', s, '"],\n    series.name = "', s, '",\n    ',
+  'min.overlap = ', params$minOverlap, ',\n    ',
+  argCode(p, flArgs), ',\n    make.plot = TRUE)\n\n',
+  if (isTRUE(floaterObject$isBest)) paste0(
+    '# the series at its best-fit dates\n',
+    'placed   <- fo$rwlOut\n',
+    'combined <- fo$rwlCombined\n\n')
+  else paste0(
+    '# The position used is not the best fit: the series was placed at ',
+    floaterObject$first, '-', floaterObject$last, '\n',
+    '# (last year ', floaterObject$last, '), ',
+    if (is.na(floaterObject$r)) 'entered by hand' else 'chosen from the candidate positions', '.\n',
+    'x <- undated[, "', s, '"]\n',
+    'x <- x[!is.na(x)]\n',
+    'placed <- as.rwl(data.frame("', s, '" = x, row.names = ', floaterObject$first, ':',
+    floaterObject$last, ', check.names = FALSE))\n',
+    'combined <- combine.rwl(rwl, placed)\n\n'),
+  if (checkable) paste0(
+    '# the series segment by segment at those dates, with the lag search\n',
+    'segs <- corr.rwl.seg(placed, master = rwl,\n    ',
+    argCode(ccfArgs, names(ccfArgs)), ',\n    ',
+    argCode(p, c(normArgs, "method", "lag.max")), ',\n    make.plot = FALSE)\n',
+    'segs$spearman.rho; segs$best.lag\n\n',
+    '# cross-correlations at those dates\n',
+    'ccf.series.rwl(combined, series = "', s, '",\n    ',
+    argCode(ccfArgs, names(ccfArgs)), ',\n    ',
+    argCode(p, normArgs), ',\n    make.plot = TRUE)\n'),
+  sep = "")
 ```

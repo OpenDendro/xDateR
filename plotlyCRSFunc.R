@@ -7,6 +7,9 @@
 #     (bottom and top) so the mouse can distinguish the two overlapping bin sets
 #   - A third invisible trace bound to xaxis2 forces the top x-axis to render
 #   - Alternating grey/white bands help the eye track individual series
+#   - With lag.max > 0, segments that correlate better at another position
+#     (COFECHA's "B" flag, best.lag != 0) are purple, as in dplR's plot.crs,
+#     and their hover text gives the best lag and the gain in correlation
 
 crsPlotly <- function(x){
   yr.range <- function(x, yr.vec = as.numeric(names(x))) {
@@ -23,6 +26,9 @@ crsPlotly <- function(x){
   rho  <- x$spearman.rho
   bins <- x$bins
   pval <- x$p.val
+  # best.lag/best.rho exist from dplR 1.8.0; without them nothing is a B
+  bLag <- if (is.null(x$best.lag)) rho * 0 else x$best.lag
+  bRho <- if (is.null(x$best.rho)) rho else x$best.rho
   yrs  <- as.numeric(rownames(x$rwi))
   
   nseries    <- nrow(rho)
@@ -38,6 +44,8 @@ crsPlotly <- function(x){
   seriesStartStop <- seriesStartStop[neworder, ]
   rho             <- rho[neworder, , drop = FALSE]
   pval            <- pval[neworder, , drop = FALSE]
+  bLag            <- bLag[neworder, , drop = FALSE]
+  bRho            <- bRho[neworder, , drop = FALSE]
   
   dat <- data.frame(
     seriesOrder = seq_len(nseries),
@@ -48,27 +56,21 @@ crsPlotly <- function(x){
   )
   
   # ── Build long data frames for bottom and top course ──────────────────────
-  buildLong <- function(rhoMat, pvalMat, colIdx, courseAdj) {
-    rhoSub  <- rhoMat[, colIdx, drop = FALSE]
-    pvalSub <- pvalMat[, colIdx, drop = FALSE]
+  buildLong <- function(colIdx, courseAdj) {
     centers <- rowMeans(bins[colIdx, , drop = FALSE])
-    
-    rhoDF  <- data.frame(dat[, 1:2], rhoSub,  stringsAsFactors = FALSE)
-    pvalDF <- data.frame(dat[, 1:2], pvalSub, stringsAsFactors = FALSE)
-    names(rhoDF)[-c(1:2)]  <- as.character(centers)
-    names(pvalDF)[-c(1:2)] <- as.character(centers)
-    
-    rhoLong <- rhoDF %>%
-      pivot_longer(-c(1:2), names_to = "binCenter", values_to = "rho") %>%
-      mutate(binCenter = as.numeric(binCenter), width = seg.length) %>%
-      drop_na()
-    
-    pvalLong <- pvalDF %>%
-      pivot_longer(-c(1:2), names_to = "binCenter", values_to = "pval") %>%
-      mutate(binCenter = as.numeric(binCenter)) %>%
-      drop_na()
-    
-    rhoLong$pval      <- pvalLong$pval
+    # One row per series x bin; rho, p, best lag and best rho side by side
+    cell <- expand.grid(i = seq_len(nseries), j = seq_along(colIdx))
+    m    <- cbind(cell$i, colIdx[cell$j])
+    rhoLong <- data.frame(seriesOrder = dat$seriesOrder[cell$i],
+                          seriesName  = dat$seriesName[cell$i],
+                          binCenter   = centers[cell$j],
+                          rho         = rho[m],
+                          width       = seg.length,
+                          pval        = pval[m],
+                          lag         = bLag[m],
+                          bestRho     = bRho[m],
+                          stringsAsFactors = FALSE)
+    rhoLong <- rhoLong[!is.na(rhoLong$rho), ]
     rhoLong$courseAdj <- courseAdj
     
     # Add incomplete edge tiles
@@ -84,6 +86,7 @@ crsPlotly <- function(x){
       select(-xMin, -binEdge)
     firstBin$rho  <- NA
     firstBin$pval <- NA
+    firstBin$lag  <- NA
     
     lastBin <- inner_join(rhoLong, lastYrs, by = c("seriesOrder","seriesName")) %>%
       group_by(seriesName) %>%
@@ -94,6 +97,7 @@ crsPlotly <- function(x){
       select(-xMax, -binEdge)
     lastBin$rho  <- NA
     lastBin$pval <- NA
+    lastBin$lag  <- NA
     
     bind_rows(rhoLong, firstBin, lastBin)
   }
@@ -102,8 +106,8 @@ crsPlotly <- function(x){
   topIdx    <- seq(2, ncol(rho), by = 2)
   
   dat2 <- bind_rows(
-    buildLong(rho, pval, bottomIdx, courseAdj = 0.75),
-    buildLong(rho, pval, topIdx,    courseAdj = 0.25)
+    buildLong(bottomIdx, courseAdj = 0.75),
+    buildLong(topIdx,    courseAdj = 0.25)
   )
   
   # ── Classify rho into colour bands ────────────────────────────────────────
@@ -115,27 +119,22 @@ crsPlotly <- function(x){
   dat2 <- dat2 %>%
     mutate(rhoFac = cut(rho, breaks = breaksRho, labels = labelNames)) %>%
     mutate(rhoFac = case_when(
-      pval > pcrit ~ "NS",
-      is.na(pval)  ~ "Incomplete",
-      TRUE         ~ as.character(rhoFac)
+      is.na(pval)          ~ "Incomplete",
+      !is.na(lag) & lag != 0 ~ "B",
+      pval > pcrit         ~ "NS",
+      TRUE                 ~ as.character(rhoFac)
     ))
   
   # ── Colour palette ─────────────────────────────────────────────────────────
-  hasNS <- any(dat2$pval > pcrit, na.rm = TRUE)
-  nLevels <- length(unique(dat2$rhoFac[dat2$rhoFac != "Incomplete"]))
-  if (hasNS) {
-    fillPal <- c(colorRampPalette(c("lightblue", "darkblue"))(nLevels - 1),
-                 "#90EE90", "#ffcccb")   # Incomplete = green, NS = red
-    palNames <- c(sort(setdiff(unique(dat2$rhoFac),
-                               c("NS", "Incomplete"))),
-                  "Incomplete", "NS")
-  } else {
-    fillPal  <- c(colorRampPalette(c("lightblue", "darkblue"))(nLevels),
-                  "#90EE90")
-    palNames <- c(sort(setdiff(unique(dat2$rhoFac), "Incomplete")),
-                  "Incomplete")
-  }
-  colLookup <- setNames(fillPal, palNames)
+  # A fixed ramp over all eleven correlation bands, so a colour means the
+  # same correlation in every file, plus the three special classes.
+  colLookup <- c(
+    setNames(colorRampPalette(c("lightblue", "darkblue"))(length(labelNames)),
+             labelNames),
+    Incomplete = "#90EE90",   # green: segment not fully covered
+    NS         = "#ffcccb",   # red: below pcrit, best as dated (A)
+    B          = "#9b59b6"    # purple: better at another lag (B)
+  )
   
   # ── Build rectangles as plotly shapes ─────────────────────────────────────
   
@@ -192,10 +191,16 @@ crsPlotly <- function(x){
   dat2_top    <- dat2[dat2$courseAdj == 0.25, ]
   
   hoverText <- function(d) {
+    lagTxt <- ifelse(!is.na(d$lag) & d$lag != 0,
+                     paste0("<br>better at lag ", sprintf("%+d", as.integer(d$lag)),
+                            ": r = ", round(d$bestRho, 3),
+                            " (gain ", round(d$bestRho - d$rho, 3), ")",
+                            ifelse(d$lag < 0, "<br>(missing ring?)", "<br>(false ring?)")),
+                     "")
     paste0(d$seriesName, "<br>",
            round(d$binCenter - d$width / 2), "\u2013",
            round(d$binCenter + d$width / 2), "<br>",
-           "r = ", round(d$rho,3))
+           "r = ", round(d$rho,3), lagTxt)
   }
   
   # Map each row's rhoFac to its tile colour for the hover label background
@@ -213,7 +218,9 @@ crsPlotly <- function(x){
   # Height: thin tiles per series plus generous margins for axes and padding
   plotHeight <- max(300, nseries * 22 + 200)
   
-  fig <- plot_ly(height = plotHeight) %>%
+  # source = "crs" and customdata (the series name) let the app respond to a
+  # click on a segment: see the plotly_click observer in server.R
+  fig <- plot_ly(height = plotHeight, source = "crs") %>%
     
     # Bottom course hover trace — markers sit in the middle of bottom tiles
     add_trace(
@@ -224,25 +231,10 @@ crsPlotly <- function(x){
       mode       = "markers",
       marker     = list(opacity = 0, size = 1),
       text       = hoverText(dat2_bottom),
+      customdata = ~seriesName,
       hoverinfo  = "text",
       hoverlabel = list(
         bgcolor   = hoverBgColor(dat2_bottom),
-        font      = list(color = "white")
-      ),
-      showlegend = FALSE
-    ) %>%
-    
-    add_trace(
-      data       = dat2_top,
-      x          = ~binCenter,
-      y          = ~(seriesOrder - 0.5 + tileH / 2),
-      type       = "scatter",
-      mode       = "markers",
-      marker     = list(opacity = 0, size = 1),
-      text       = hoverText(dat2_top),
-      hoverinfo  = "text",
-      hoverlabel = list(
-        bgcolor   = hoverBgColor(dat2_top),
         font      = list(color = "white")
       ),
       showlegend = FALSE
@@ -250,22 +242,6 @@ crsPlotly <- function(x){
     
     # Top course hover trace — markers sit in the middle of top tiles
     add_trace(
-      data       = dat2_bottom,
-      x          = ~binCenter,
-      y          = ~(seriesOrder - 0.5 - tileH / 2),
-      type       = "scatter",
-      mode       = "markers",
-      marker     = list(opacity = 0, size = 1),
-      text       = hoverText(dat2_bottom),
-      hoverinfo  = "text",
-      hoverlabel = list(
-        bgcolor   = hoverBgColor(dat2_bottom),
-        font      = list(color = "white")
-      ),
-      showlegend = FALSE
-    ) %>%
-    
-    add_trace(
       data       = dat2_top,
       x          = ~binCenter,
       y          = ~(seriesOrder - 0.5 + tileH / 2),
@@ -273,13 +249,15 @@ crsPlotly <- function(x){
       mode       = "markers",
       marker     = list(opacity = 0, size = 1),
       text       = hoverText(dat2_top),
+      customdata = ~seriesName,
       hoverinfo  = "text",
       hoverlabel = list(
         bgcolor   = hoverBgColor(dat2_top),
         font      = list(color = "white")
       ),
       showlegend = FALSE
-    ) %>%    
+    ) %>%
+    
     # Third invisible trace bound to xaxis2 — forces the top x-axis to render.
     # Without at least one trace using xaxis2 plotly ignores the axis entirely.
     add_trace(
@@ -322,6 +300,7 @@ crsPlotly <- function(x){
       plot_bgcolor  = "white",
       paper_bgcolor = "white"
     ) %>%
+    event_register("plotly_click") %>%
     config(
       displaylogo            = FALSE,
       modeBarButtonsToRemove = c("select2d", "lasso2d", "autoScale2d"),

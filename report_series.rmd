@@ -3,53 +3,57 @@ title: "Report: Individual Series Correlations"
 output: html_document
 params:
   fileName: NA
-  rwlObject: NA
-  cssParams: NA
+  series: NA
+  seriesFull: NA
+  plotCode: NA
+  xdParams: NA
+  excluded: NA
+  lagCCF: NA
+  winCCF: NA
+  datingNotes: NA
+  editDF: NA
+  editCode: NA
+  helpers: NA
 ---
 
-```{r,echo=FALSE}
-library(DT)
+```{r setup, echo=FALSE, message=FALSE}
+library(dplR)
 library(knitr)
 library(kableExtra)
-cssParams <- params$cssParams
-```
-
-```{r,echo=FALSE}
-if(is.null(params$fileName)){
-  fname <- "DemoData.rwl"
-}
-
-if(!is.null(params$fileName)){
-  fname <- params$fileName
-  }
-
-if(cssParams$datingNotes == ""){
-  cssParams$datingNotes <- "No dating notes entered."
-}
-
+source(params$helpers)
+p        <- params$xdParams
+excluded <- params$excluded
+fname    <- if (is.null(params$fileName)) "DemoData.rwl" else params$fileName
+notes    <- if (is.null(params$datingNotes) || params$datingNotes == "") {
+  "No dating notes entered."
+} else params$datingNotes
+ed       <- params$editDF
+edited   <- nrow(ed) > 0
+cssArgs  <- c("seg.length", "bin.floor", normArgs, "pcrit", "method")
+ccfArgs  <- c("seg.length", "bin.floor", normArgs, "pcrit")
 ```
 
 ### Date: `r Sys.Date()`
 
 ### File: `r fname`
 
-#### Selected Series: 
+`r if (edited) paste0("**Edits:** the data analysed here include ", nrow(ed), " edit(s) made in xDateR, listed in the edit report. The R code below replays them before the analysis.")`
 
-**`r cssParams$series`**
+`r if (fname %in% c("xDateRtest.rwl", "xDateRtestUndated.rwl")) "The example data are in the data folder of the xDateR repository: https://github.com/OpenDendro/xDateR"`
 
-#### Remaining Series in Master:
+#### Selected Series:
+
+**`r params$series`**
+
+`r if (params$series %in% excluded) "This series is left out of the master and is tested against the master built from the others."`
+
+#### Series in Master:
 
 ```{r,echo=FALSE}
-dat <- params$rwlObject
-mask <- names(dat) %in% cssParams$series
-dat <- dat[,!mask]
-nSeries <- ncol(dat)
+nms <- colnames(params$seriesFull$rwl)
 i <- 4
-j <- round(nSeries/i + 0.5)
-tmp <- c(names(dat),rep(NA,i * j - nSeries))
-res <- matrix(tmp,nrow = j, ncol = i)
-#res <- data.frame(res)
-res[is.na(res)] <- ""
+j <- ceiling(length(nms) / i)
+res <- matrix(c(nms, rep("", i * j - length(nms))), nrow = j, ncol = i)
 res2 <- kable(res, format="html") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 gsub("<thead>.*</thead>", "", res2)
@@ -58,81 +62,55 @@ gsub("<thead>.*</thead>", "", res2)
 #### Arguments:
 
 ```{r,echo=FALSE}
-tab2 <- data.frame(Parameter=c("seg.length","bin.floor","n",
-                               "prewhiten","pcrit","biweight",
-                               "method",
-                               "lag.max"),
-                   Value=c(cssParams$seg.length,cssParams$bin.floor,
-                           cssParams$n, cssParams$prewhiten, 
-                           cssParams$pcrit, cssParams$biweight,
-                           cssParams$method,
-                           cssParams$lagCCF))
-kable(tab2) %>%
+fmt <- function(v) if (is.null(v)) "NULL" else as.character(v)
+tab2 <- data.frame(Parameter = c(cssArgs, "lag.max"),
+                   Value     = c(vapply(p[cssArgs], fmt, ""), params$lagCCF))
+kable(tab2, row.names = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
 
 ```{r, echo=FALSE, fig.width=10, fig.height=8}
-dat <- params$rwlObject
-if(cssParams$n=="NULL"){
-  n <- NULL
-}
-if(cssParams$n!="NULL"){
-  n <- as.numeric(cssParams$n)
-}
-css <- corr.series.seg(dat, series = cssParams$series, 
-                       seg.length = cssParams$seg.length, 
-                       bin.floor = as.numeric(cssParams$bin.floor),n = n,
-                       prewhiten = cssParams$prewhiten, pcrit = cssParams$pcrit,
-                       biweight = cssParams$biweight, method = cssParams$method,
-                       make.plot=TRUE)
+css <- do.call(corr.series.seg, c(params$seriesFull, p[cssArgs],
+                                  list(make.plot = TRUE)))
 ```
 
 
 ```{r, echo=FALSE, fig.width=10, fig.height=8}
-yrs <- time(dat)
-ccfObject <- ccf.series.rwl(dat[yrs %in% cssParams$winCCF,], 
-                            series = cssParams$series, 
-                            seg.length = cssParams$seg.length, 
-                            bin.floor = as.numeric(cssParams$bin.floor),n = n,
-                            prewhiten = cssParams$prewhiten, pcrit = cssParams$pcrit,
-                            biweight = cssParams$biweight, method = cssParams$method,
-                            lag.max = cssParams$lagCCF,make.plot=TRUE)
+# the whole series is analysed; only the segments inside the chosen years
+# are drawn (plotCCF(), printed in the R code below)
+eval(parse(text = params$plotCode))
+ccfObject <- suppressMessages(do.call(ccf.series.rwl,
+                                      c(params$seriesFull, p[ccfArgs],
+                                        list(lag.max = params$lagCCF,
+                                             make.plot = FALSE))))
+plotCCF(ccfObject, from = params$winCCF[1], to = params$winCCF[2], pcrit = p$pcrit)
 ```
-
 
 
 ### Dating Notes
-`r cssParams$datingNotes`
+`r notes`
 
 ### R Code
 
-```
-library(dplR)
-dat <- read.rwl("`r fname`")
-css <- corr.series.seg(dat, series = "`r cssParams$series`", 
-                       seg.length = `r cssParams$seg.length`, 
-                       bin.floor = `r cssParams$bin.floor`,
-                       n = `r cssParams$n`,
-                       prewhiten = `r cssParams$prewhiten`, 
-                       pcrit = `r cssParams$pcrit`,
-                       biweight = `r cssParams$biweight`, 
-                       method = "`r cssParams$method`",
-                       make.plot=TRUE)
-                       
-yrs <- time(dat)
-win <- `r min(cssParams$winCCF)`:`r max(cssParams$winCCF)`
-ccfObject <- ccf.series.rwl(dat[yrs %in% win,], 
-                            series = "`r cssParams$series`", 
-                            seg.length = `r cssParams$seg.length`, 
-                            bin.floor = `r cssParams$bin.floor`,
-                            n = `r cssParams$n`,
-                            prewhiten = `r cssParams$prewhiten`, 
-                            pcrit = `r cssParams$pcrit`,
-                            biweight = `r cssParams$biweight`,
-                            method = "`r cssParams$method`",
-                            lag.max = `r cssParams$lagCCF`,
-                            make.plot=TRUE)
-           
-
+```{r, echo=FALSE, comment=""}
+s <- params$series
+cat(
+  paste(dataCode(fname, ed, params$editCode), collapse = "\n"), '\n\n',
+  '# the master: every series except "', s, '"',
+  if (length(excluded) > 0) ' and those left out of the master', '\n',
+  'master <- dat[, setdiff(names(dat), ', vecCode(unique(c(s, excluded))), '), drop = FALSE]\n',
+  'series <- setNames(dat[["', s, '"]], rownames(dat))\n',
+  'css <- corr.series.seg(master, series = series,\n    ',
+  argCode(p, cssArgs), ',\n    make.plot = TRUE)\n\n',
+  '# cross-correlations by segment, on the whole series\n',
+  'ccfObject <- ccf.series.rwl(master, series = series,\n    ',
+  argCode(p, ccfArgs), ',\n    lag.max = ', params$lagCCF, ',\n    make.plot = FALSE)\n\n',
+  '# the plot above shows the segments inside ', params$winCCF[1], '-', params$winCCF[2],
+  '.\n# ccf.series.rwl() draws every segment, so this function draws the chosen ones\n',
+  '# (it is dplR\'s own plotting code):\n',
+  paste(userCode(params$plotCode), collapse = "\n"), '\n\n',
+  'plotCCF(ccfObject, from = ', params$winCCF[1], ', to = ', params$winCCF[2],
+  ', pcrit = ', p$pcrit, ')\n',
+  sep = "")
 ```
