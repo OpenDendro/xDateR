@@ -368,6 +368,34 @@ appSidebar <- sidebar(
         a("Report a problem",
           href = "https://github.com/OpenDendro/xDateR/issues", target = "_blank"),
         "and say which versions these are and, if you can, attach the file.")),
+      # What changed in this version, for people who used the last one. The
+      # first two items change results, so they come first. Rewrite the list
+      # with each deployment (and change xDateRVersion above).
+      tags$details(
+        class = "small mb-2",
+        tags$summary(tags$strong(paste0("What's new in ", xDateRVersion))),
+        p(class = "mt-2 mb-1", tags$em("Two changes mean a file you checked",
+                                       "before can look different now:")),
+        tags$ul(
+          class = "ps-3",
+          tags$li(tags$strong("Lag search is on."), "Each segment is also tested",
+                  "up to 5 years either side of where it is dated. A segment that",
+                  "fits better somewhere else is purple. To see results as before,",
+                  "set Lag search to 0 in the Analysis Parameters."),
+          tags$li(tags$strong("Gaps are gaps."), "Years a file records no",
+                  "measurement for used to be read as zero-width rings. They are",
+                  "now shown as missing, and can be filled from the Overview.")),
+        p(class = "mb-1", tags$em("Also new:")),
+        tags$ul(
+          class = "ps-3",
+          tags$li("Data Checks on the Overview say in plain language what needs a look."),
+          tags$li("Hints say whether to look for a missing or a false ring, and where."),
+          tags$li("Every report has R code that reproduces your results, edits included."),
+          tags$li("Edits can be undone one at a time."),
+          tags$li("On the Floater panel you can compare candidate positions and choose one."),
+          tags$li("A spline can be used as the low-frequency filter."),
+          tags$li("Guided examples: look for \u201cShow me how\u201d in the sidebar."))
+      ),
       hr(),
       p(tags$strong("Please cite dplR if you use this app:")),
       p(tags$small(
