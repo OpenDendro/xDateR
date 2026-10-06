@@ -55,6 +55,16 @@ seriesSpan <- function(rwl, series) {
   range(yrs[!is.na(rwl[[series]])])
 }
 
+# ── oneSeries ─────────────────────────────────────────────────────────────────
+# One series of `rwl` as an rwl that keeps every year of `rwl`. Taking a
+# column with rwl[, series, drop = FALSE] trims the years to that series'
+# span, and corr.rwl.seg() then refuses a series shorter than two segments
+# ("'seg.length' can be at most 1/2 the number of years in 'rwl'") although
+# it tests the same series without complaint as part of the whole file.
+oneSeries <- function(rwl, series) {
+  as.rwl(as.data.frame(rwl)[series])
+}
+
 # ── rwlGaps ───────────────────────────────────────────────────────────────────
 # Interior gaps: years inside a series' span with no measurement. Since dplR
 # 1.8.0, read.tucson() returns these as NA (older readers filled them with
@@ -407,13 +417,29 @@ crsTested <- function(crs, i = 1) {
 # specific to suggest. `series` is the names of the loaded series: any named
 # in the message (as a whole word, so a series called "j" doesn't match
 # every "j") can be left out of the master.
-dplrAdvice <- function(msg, series) {
+dplrAdvice <- function(msg, series, seg.length = NULL) {
   named <- series[vapply(series, function(s) {
     grepl(paste0("(^|[^[:alnum:]_.])", gsub("([][{}()+*^$|\\\\?.])", "\\\\\\1", s),
                  "($|[^[:alnum:]_.])"), msg)
   }, logical(1))]
+  # dplR's three ways of saying the segments do not fit: the file spans
+  # fewer than two segment lengths, the series and the master share fewer
+  # years than one segment, or no whole segment fits the series
+  segFit <- grepl("'seg.length' can be at most|less than 'seg.length'|shorten 'seg.length'", msg)
+  # dplR 1.8.0's floater search stops like this when the undated series is
+  # longer than the master (fixed in dplR 1.8.1)
+  if (grepl("'x' and 'y' must have the same length", msg, fixed = TRUE)) {
+    return(paste0(" This happens when the undated series has more rings than the",
+                  " master has years: this version of dplR cannot search that.",
+                  " If part of the series is enough to date it, load that part."))
+  }
   tips <- c(
-    if (length(named)) paste0("leave ", paste(named, collapse = ", "),
+    if (segFit) paste0(
+      "set a shorter Segment length in the Analysis Parameters",
+      if (!is.null(seg.length)) paste0(" (it is ", seg.length, " years)"),
+      ": the file must span at least two segments, and a series is tested only",
+      " where a whole segment fits both it and the master"),
+    if (length(named) && !segFit) paste0("leave ", paste(named, collapse = ", "),
                               " out of the master (filter on the Correlations panel)"),
     if (grepl("internal NA", msg, fixed = TRUE)) "fill the gap from the Overview panel",
     if (grepl("nyrs", msg, fixed = TRUE))
@@ -511,7 +537,11 @@ placeFloater <- function(master, series, name, last) {
 # is more than `gap` years from every position already listed (positions a
 # year or two apart are the same match off by a ring). Up to `n` rows of
 # first, last, r, p and n (the years of overlap with the master).
+#
+# The position with the smallest p-value is always listed, as an extra row
+# if need be: see floaterStrongest().
 floaterCandidates <- function(fcs, n = 5, gap = 2) {
+  strong <- floaterStrongest(fcs)
   fcs  <- fcs[order(-fcs$r), ]
   keep <- integer(0)
   for (i in seq_len(nrow(fcs))) {
@@ -519,6 +549,33 @@ floaterCandidates <- function(fcs, n = 5, gap = 2) {
     if (length(keep) == n) break
   }
   out <- fcs[keep, ]
+  if (all(abs(strong$last - out$last) > gap)) out <- rbind(out, strong)
   rownames(out) <- NULL
   out
+}
+
+# ── floaterStrongest ──────────────────────────────────────────────────────────
+# The position with the strongest evidence: the smallest p-value (the
+# higher correlation if two tie). The best fit is the highest correlation,
+# and correlation takes no account of overlap: 0.34 over 57 years is easier
+# to get by chance than 0.28 over 243 years. When the two positions differ
+# the user should look at both. One row of floaterCorStats.
+floaterStrongest <- function(fcs) {
+  fcs[order(fcs$p, -fcs$r)[1], ]
+}
+
+# TRUE when the best fit (highest r) and the strongest evidence (smallest p)
+# are different positions, more than `gap` years apart.
+floaterDisagree <- function(fcs, gap = 2) {
+  abs(fcs$last[which.max(fcs$r)] - floaterStrongest(fcs)$last) > gap
+}
+
+# ── fmtPsmall ─────────────────────────────────────────────────────────────────
+# p-values for comparing positions, where "< 0.001" for all of them would
+# hide the difference that matters: 0.005, 5e-06. Below 1e-10 the number
+# means nothing more (and a clear-cut fit comes back as exactly 0).
+fmtPsmall <- function(p) {
+  ifelse(is.na(p), "",
+         ifelse(p >= 0.001, formatC(p, digits = 3, format = "f"),
+                ifelse(p < 1e-10, "< 1e-10", formatC(p, digits = 0, format = "e"))))
 }

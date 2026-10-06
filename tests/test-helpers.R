@@ -137,7 +137,21 @@ ok(grepl("leave TR2804 out of the master", a1) && !grepl("TR2821", a1) && !grepl
      grepl("None or Hanning", a1), "advice names the series in the message, and only that one")
 m2 <- "series ABC105 has internal NA values, and the 'nyrs' spline needs an unbroken series."
 ok(grepl("fill the gap from the Overview panel", dplrAdvice(m2, c("ABC105", "ABC104"))), "advice for a gap offers the fill")
-ok(dplrAdvice("shorten 'seg.length' or adjust 'bin.floor'", c("A", "B")) == "", "no advice when there is nothing specific to say")
+ok(dplrAdvice("some other dplR error", c("A", "B")) == "", "no advice when there is nothing specific to say")
+for (m in c("shorten 'seg.length' or adjust 'bin.floor'",
+            "'seg.length' can be at most 1/2 the number of years in 'rwl'",
+            "number of overlapping years is less than 'seg.length'")) {
+  ok(grepl("set a shorter Segment length in the Analysis Parameters (it is 50 years)", dplrAdvice(m, c("rwl", "A"), 50), fixed = TRUE) &&
+       !grepl("leave", dplrAdvice(m, c("rwl", "A"), 50)),
+     paste("advice for segments that do not fit:", substr(m, 1, 30)))
+}
+ok(grepl("more rings than the master has years", dplrAdvice("'x' and 'y' must have the same length", "A")),
+   "advice when dplR 1.8.0 cannot search a floater longer than the master")
+shortest <- names(d)[which.min(colSums(!is.na(d)))]
+o1 <- oneSeries(d, shortest)
+ok(inherits(o1, "rwl") && identical(rownames(o1), rownames(d)) && identical(names(o1), shortest) &&
+     identical(o1[[1]], d[[shortest]]) && nrow(d[, shortest, drop = FALSE]) < nrow(d),
+   "oneSeries keeps every year of the file, where [ trims to the series")
 ok(grepl("leave 704071 out", dplrAdvice("series 704071 has internal NA values", c("704071", "70407"))) &&
      !grepl("70407 ", dplrAdvice("series 704071 has internal NA values", c("704071", "70407"))),
    "series names match as whole words")
@@ -174,4 +188,19 @@ cand <- floaterCandidates(fo$floaterCorStats)
 ok(nrow(cand) == 5 && cand$last[1] == best$last && all(diff(cand$r) <= 0) &&
      min(dist(cand$last)) > 2, "candidates: best first, in order, and more than 2 years apart")
 ok(isTRUE(all.equal(cand$r[2], floaterRunnerUp(fo$floaterCorStats)$r)), "the second candidate is the next best position")
+# The best fit by r on a short overlap against stronger evidence elsewhere
+# (the numbers are bulg001's series 653111 from the ITRDB test)
+fx <- data.frame(first = c(1533, 1556, 1721, 1608, 1300), last = c(1792, 1815, 1980, 1867, 1559),
+                 r = c(0.338, 0.331, 0.281, 0.195, 0.10), p = c(5.2e-3, 1.44e-3, 4.85e-6, 1.27e-2, 0.2),
+                 n = c(57, 80, 243, 132, 60))
+ok(floaterStrongest(fx)$last == 1980 && floaterDisagree(fx), "strongest evidence is the long overlap, not the highest r")
+ok(!floaterDisagree(fo$floaterCorStats) && floaterStrongest(fo$floaterCorStats)$last == cand$last[1],
+   "the example floater: best fit and strongest evidence agree")
+c2 <- floaterCandidates(fx, n = 2)
+ok(nrow(c2) == 3 && identical(c2$last, c(1792, 1815, 1980)),
+   "the strongest position is listed even when it is not among the top n by r")
+ok(nrow(floaterCandidates(fx, n = 3)) == 3, "and not listed twice when it is")
+ok(identical(fmtPsmall(c(0.0052, 4.85e-6, NA, 0.2, 0, 1e-30)), c("0.005", "5e-06", "", "0.200", "< 1e-10", "< 1e-10")),
+   "small p-values keep their size, down to 1e-10")
+
 cat("all helper checks passed\n")

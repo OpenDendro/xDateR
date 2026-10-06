@@ -57,6 +57,9 @@ crsPlotly <- function(x){
   
   # ── Build long data frames for bottom and top course ──────────────────────
   buildLong <- function(colIdx, courseAdj) {
+    # no bins in this course (one bin in all), or none with a correlation
+    # (a stretch of years no series covers for a whole segment)
+    if (length(colIdx) == 0 || all(is.na(rho[, colIdx]))) return(NULL)
     centers <- rowMeans(bins[colIdx, , drop = FALSE])
     # One row per series x bin; rho, p, best lag and best rho side by side
     cell <- expand.grid(i = seq_len(nseries), j = seq_along(colIdx))
@@ -102,8 +105,8 @@ crsPlotly <- function(x){
     bind_rows(rhoLong, firstBin, lastBin)
   }
   
-  bottomIdx <- seq(1, ncol(rho), by = 2)
-  topIdx    <- seq(2, ncol(rho), by = 2)
+  bottomIdx <- which(seq_len(ncol(rho)) %% 2 == 1)
+  topIdx    <- which(seq_len(ncol(rho)) %% 2 == 0)
   
   dat2 <- bind_rows(
     buildLong(bottomIdx, courseAdj = 0.75),

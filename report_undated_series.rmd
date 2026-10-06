@@ -104,11 +104,13 @@ if (checkable) {
 ```{r, echo=FALSE}
 cand <- floaterCandidates(fcs)
 kable(data.frame(Years = paste0(cand$first, "-", cand$last), r = round(cand$r, 3),
-                 Overlap = cand$n), row.names = FALSE) %>%
+                 Overlap = cand$n, p = fmtPsmall(cand$p)), row.names = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE, position = "left")
 ```
 
 `r if (nrow(cand) > 1 && cand$r[1] - cand$r[2] < 0.1) "**Ambiguous:** the two best positions correlate almost equally well."`
+
+`r if (floaterDisagree(fcs)) { st <- floaterStrongest(fcs); paste0("**Check the overlap:** the position with the highest correlation rests on ", fcs$n[which.max(fcs$r)], " years of overlap with the master. ", st$first, "-", st$last, " correlates lower (r = ", round(st$r, 2), ") but over ", st$n, " years, which is stronger evidence (p = ", fmtPsmall(st$p), "). A high correlation over a short overlap is easier to get by chance.") }`
 
 ### Segments at the dates used
 
@@ -177,7 +179,10 @@ cat(
     'combined <- combine.rwl(rwl, placed)\n\n'),
   if (checkable) paste0(
     '# the series segment by segment at those dates, with the lag search\n',
-    'segs <- corr.rwl.seg(placed, master = rwl,\n    ',
+    '# (as.data.frame() keeps every year of the master: taking the column from\n',
+    '# the rwl object would trim the years to the series, and corr.rwl.seg()\n',
+    '# refuses a series shorter than two segments)\n',
+    'segs <- corr.rwl.seg(as.rwl(as.data.frame(combined)["', s, '"]), master = rwl,\n    ',
     argCode(ccfArgs, names(ccfArgs)), ',\n    ',
     argCode(p, c(normArgs, "method", "lag.max")), ',\n    make.plot = FALSE)\n',
     'segs$spearman.rho; segs$best.lag\n\n',

@@ -724,4 +724,46 @@ testServer(srv, {
   session$setInputs(useDemoDated = 1, file2 = data.frame(name = "bad.rwl", size = 1, type = "", datapath = bad))
   ok(is.null(getRWLUndated()) && !is.null(undatedRead()$error), "bad undated file: error kept, no crash")
 })
+
+# ── A file with one series: every panel says why, none stops with an error ──
+testServer(srv, {
+  one <- read.rwl("data/xDateRtest.rwl", verbose = FALSE)[, "ABC104", drop = FALSE]
+  f <- tempfile(fileext = ".rwl"); suppressMessages(write.tucson(one, f, prec = 0.01))
+  do.call(session$setInputs, c(list(file1 = data.frame(name = "one.rwl", size = 1, type = "", datapath = f)), params))
+  ok(ncol(rwlRV$dated) == 1, "a one-series file loads")
+  said <- function(expr) tryCatch({expr; ""}, error = function(e) conditionMessage(e))
+  ok(grepl("segment plot needs two or more series", said(output$rwlPlot)),
+     "one series: the segment plot says to use the spaghetti plot")
+  session$setInputs(rwlPlotType = "spag")
+  output$rwlPlot; output$checkPanel; output$rwlSummary
+  ok(TRUE, "one series: the Overview renders")
+  session$setInputs(series = "ABC104", rangeCCF = c(1300, 1950), winCenter = 1500, winWidth = 40)
+  for (o in c("cssPlot", "ccfPlot", "xskelPlot")) {
+    ok(grepl("master has only 1 series", said(output[[o]])), paste("one series:", o, "says the master is too small"))
+  }
+  ok(grepl("master has only 1 series", said(getCRS())), "one series: Correlations says the master is too small")
+  ok(grepl("master has only 1 series", paste(readLines(output$cssReport, warn = FALSE), collapse = " ")),
+     "one series: the series report says why it was not made")
+})
+
+# ── An undated series with a gap inside it is not searched ──────────────────
+testServer(srv, {
+  und <- read.rwl("data/xDateRtestUndated.rwl", verbose = FALSE)
+  und <- as.data.frame(und); mid <- which(!is.na(und$ABC119))[c(60, 61)]
+  und[mid, "ABC119"] <- NA
+  uf <- tempfile(fileext = ".csv")
+  write.csv(cbind(year = as.numeric(rownames(und)), und), uf, row.names = FALSE, na = "")
+  do.call(session$setInputs, c(list(useDemoDated = 1, minOverlapUndated = 50), params))
+  session$setInputs(file2 = data.frame(name = "gap.csv", size = 1, type = "", datapath = uf))
+  session$setInputs(series2 = "ABC119")
+  ok(nrow(rwlGaps(getRWLUndated()[, "ABC119", drop = FALSE])) == 1, "an undated series with a two-year gap loads")
+  msg <- tryCatch({getFloater(); ""}, error = function(e) conditionMessage(e))
+  ok(grepl("Series ABC119 has no measurement for", msg) && grepl("can't be dated as one piece", msg) &&
+       grepl("missing rings", msg),
+     "a floater with a gap is refused, naming the years, not dated with the gap closed")
+  session$setInputs(series2 = "ABC110")
+  ok(!is.null(getFloater()$floaterCorStats), "the other series in that file are still dated")
+  ok(grepl(">p<", output$floaterCandsTable) || grepl('"p"', output$floaterCandsTable), "the candidates table has a p column")
+})
+
 cat("all server checks passed\n")

@@ -43,6 +43,14 @@ if (packageVersion("dplR") < "1.8.0") {
        ". Install a newer dplR (or run renv::restore()) and restart R.",
        call. = FALSE)
 }
+
+# The version shown under About, so a user reporting a problem can say what
+# they were running. Change it with each deployment.
+xDateRVersion <- "2026.10"
+
+# Uploads: Shiny's limit of 5 MB is left as it is. The largest ring-width
+# file in the ITRDB (chin067, 597 series) is 3.1 MB.
+
 library(DT)
 library(shinyjs)
 library(plotly)
@@ -354,6 +362,12 @@ appSidebar <- sidebar(
         "for assessing dating quality and identifying and fixing problems."),
       p(a(bs_icon("github"), " xDateR on GitHub",
           href = "https://github.com/OpenDendro/xDateR", target = "_blank")),
+      p(tags$small(
+        paste0("xDateR ", xDateRVersion, " \u00b7 dplR ", packageVersion("dplR"), "."),
+        "Something not working?",
+        a("Report a problem",
+          href = "https://github.com/OpenDendro/xDateR/issues", target = "_blank"),
+        "and say which versions these are and, if you can, attach the file.")),
       hr(),
       p(tags$strong("Please cite dplR if you use this app:")),
       p(tags$small(

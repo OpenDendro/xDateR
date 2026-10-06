@@ -91,7 +91,14 @@ shinyServer(function(session, input, output) {
   safeDownload <- function(filename, content) {
     downloadHandler(filename = filename, content = function(file) {
       tryCatch(content(file), error = function(e) {
-        msg <- paste0("xDateR could not make this report: ", conditionMessage(e))
+        # the same advice the panels give (dplrAdvice()), unless the message
+        # came from a panel and has it already
+        msg <- conditionMessage(e)
+        msg <- paste0("xDateR could not make this report: ", msg,
+                      if (!grepl("[.!?]$", msg)) ".",
+                      if (!grepl("In xDateR you can|This happens when", msg)) {
+                        dplrAdvice(msg, isolate(colnames(rwlRV$dated)), isolate(input$seg.length))
+                      })
         writeLines(if (grepl("[.]html?$", file, ignore.case = TRUE)) {
           c("<html><head><meta charset='utf-8'><title>Report not made</title></head>",
             "<body style='font-family: sans-serif; max-width: 40em; margin: 3em auto;'>",
@@ -116,7 +123,8 @@ shinyServer(function(session, input, output) {
       msg <- conditionMessage(e)
       validate(need(FALSE, paste0("dplR stopped with this message: ", msg,
                                   if (!grepl("[.!?]$", msg)) ".",
-                                  dplrAdvice(msg, isolate(colnames(rwlRV$dated))))))
+                                  dplrAdvice(msg, isolate(colnames(rwlRV$dated)),
+                                             isolate(input$seg.length)))))
     })
   }
 
@@ -660,6 +668,10 @@ shinyServer(function(session, input, output) {
   # dplR filters each series it is given, so nothing is cut to a window
   # before it is analysed (see plotCCF.R).
   seriesInputs <- function(series) {
+    # Too few series for a master (a one-series file, say): say so here, in
+    # place of whatever dplR error each plot would otherwise stop with
+    qa <- rwlQA()
+    validate(need(qa$tier != 1, qa$message))
     dat <- rwlRV$dated
     m   <- dat[, setdiff(colnames(dat), c(rwlRV$excluded, series)), drop = FALSE]
     v   <- setNames(dat[[series]], rownames(dat))
@@ -893,6 +905,13 @@ shinyServer(function(session, input, output) {
           "requires at least 5 series to build a meaningful master chronology. ",
           if (length(rwlRV$excluded)) {
             "Put more series back in the master using the filter on the Correlations panel, or load a file with more series."
+          } else if (nSeries == 1) {
+            # a lone series is an undated sample far more often than a
+            # dated file
+            paste0("A dated file is the collection the master is built from. ",
+                   "If this is one undated series to be dated, load a dated ",
+                   "file here and load this file under Undated Series on the ",
+                   "Floater panel.")
           } else {
             "Please load a file with more series."
           }
@@ -986,6 +1005,19 @@ shinyServer(function(session, input, output) {
   getFloater <- reactive({
     req(getRWLUndated(), input$minOverlapUndated,
         isTRUE(input$series2 %in% colnames(getRWLUndated())))
+    # A gap inside the series cannot be dated across: dplR 1.8.0 closes it
+    # without a word, which puts the rings on either side out of step and
+    # dates one part of the series or neither (dplR 1.8.1 stops)
+    und <- getRWLUndated()
+    gap <- rwlGaps(und[, input$series2, drop = FALSE])
+    validate(need(nrow(gap) == 0, paste0(
+      "Series ", input$series2, " has no measurement for ",
+      paste(formatGaps(gap), collapse = ", "), " (as numbered in the undated file). ",
+      "A series with a gap inside it can't be dated as one piece: the rings ",
+      "after the gap would be out of step with the rings before it. In the ",
+      "file, either put a value in for the missing ",
+      if (sum(gap$n) == 1) "ring" else "rings",
+      " or split the series at the gap into two series, then load it again.")))
     p  <- xdParams()
     fo <- tryDplR(do.call(dplR::xdate.floater, c(
       list(rwl         = masterRWL(),
@@ -1378,6 +1410,9 @@ shinyServer(function(session, input, output) {
 
   output$rwlPlot <- renderPlot({
     req(rwlRV$dated, input$rwlPlotType)
+    # dplR 1.8.0's segment plot stops on a one-series file
+    validate(need(ncol(rwlRV$dated) > 1 || input$rwlPlotType != "seg",
+                  "The segment plot needs two or more series. Choose the spaghetti plot to see this one."))
     plot.rwl(rwlRV$dated, plot.type = input$rwlPlotType)
   }, height = 400)
 
@@ -1793,7 +1828,19 @@ shinyServer(function(session, input, output) {
       # model's order. Say so rather than pass on dplR's internal error.
       sp <- seriesSpan(rwlRV$dated, input$series)
       nearStart <- win[1] - sp[1] < 30 && isTRUE(p$prewhiten)
-      validate(need(FALSE, if (nearStart) {
+      # the window does not fit inside the series: a short series, or a
+      # window at one of its ends
+      outside <- win[1] < sp[1] || win[2] > sp[2]
+      validate(need(FALSE, if (outside) {
+        paste0("The skeleton plot can't be drawn for ", win[1], "\u2013", win[2],
+               ": ", input$series, " covers ", sp[1], "\u2013", sp[2], " (",
+               sp[2] - sp[1] + 1, " years), and the window must lie inside the ",
+               "series. ", if (sp[2] - sp[1] + 1 < 30) {
+                 "This series is too short for a skeleton plot here."
+               } else {
+                 "Move the window or make it narrower."
+               })
+      } else if (nearStart) {
         paste0("The skeleton plot can't be drawn for ", win[1], "\u2013", win[2],
                ". Prewhitening removes the first few years of each series (as many ",
                "as the order of its AR model), and this window starts only ",
@@ -1982,9 +2029,11 @@ shinyServer(function(session, input, output) {
   # (the master as a data.frame, so the same leave-one-out master as the
   # Correlations panel), with the lag search.
   seriesSegs <- function(dat, series, p) {
+    qa <- rwlQA()
+    validate(need(qa$tier != 1, qa$message))
     m <- dat[, setdiff(colnames(dat), c(rwlRV$excluded, series)), drop = FALSE]
     suppressMessages(do.call(corr.rwl.seg, c(
-      list(rwl = dat[, series, drop = FALSE], master = m),
+      list(rwl = oneSeries(dat, series), master = m),
       p[c("seg.length", "bin.floor", normArgs, "pcrit", "method", "lag.max")],
       list(make.plot = FALSE))))
   }
@@ -2332,6 +2381,22 @@ shinyServer(function(session, input, output) {
   output$floaterPositionUI <- renderUI({
     pf   <- placedFloater()
     cand <- floaterCands()
+    # the best fit is the highest correlation, which a short overlap can
+    # win by chance: say so when another position is stronger evidence
+    strong <- floaterStrongest(pf$floaterCorStats)
+    overlap <- if (floaterDisagree(pf$floaterCorStats) && pf$last != strong$last) {
+      div(class = "alert alert-warning py-2 small",
+          tags$b("Check the overlap: "),
+          paste0("the best fit, ", pf$bestFirst, "\u2013", pf$bestLast, " (r = ",
+                 round(pf$bestR, 2), "), rests on ",
+                 pf$floaterCorStats$n[which.max(pf$floaterCorStats$r)],
+                 " years of overlap with the master. ", strong$first, "\u2013",
+                 strong$last, " correlates lower (r = ", round(strong$r, 2),
+                 ") but over ", strong$n, " years, which is stronger evidence",
+                 " (p = ", fmtPsmall(strong$p), "). A high correlation over a",
+                 " short overlap is easier to get by chance. Look at both",
+                 " before saving."))
+    }
     status <- if (pf$isBest) {
       if (nrow(cand) > 1 && cand$r[1] - cand$r[2] < 0.1) {
         div(class = "alert alert-danger py-2 small",
@@ -2354,13 +2419,16 @@ shinyServer(function(session, input, output) {
           actionLink("floaterUseBest", "Back to the best fit"))
     }
     tagList(
-      status,
+      status, overlap,
       tags$label(class = "small fw-bold mt-2", "Candidate positions",
                  tooltip(bs_icon("question-circle"),
                          paste("The best-fitting positions that are more than two",
                                "years apart (closer ones are the same match off by a",
                                "ring). If the first is far ahead of the second, the",
-                               "fit is clear-cut. Click a row to use that position:",
+                               "fit is clear-cut. p is the chance of a correlation",
+                               "that high with that many years of overlap if the",
+                               "series did not belong there: the smaller, the",
+                               "stronger the evidence. Click a row to use that position:",
                                "the plot, the segment test and Save These Dates all",
                                "follow it."))),
       DTOutput("floaterCandsTable", fill = FALSE),
@@ -2376,12 +2444,14 @@ shinyServer(function(session, input, output) {
     cand <- floaterCands()
     datatable(data.frame(Years   = paste0(cand$first, "\u2013", cand$last),
                          r       = round(cand$r, 2),
-                         Overlap = cand$n),
+                         Overlap = cand$n,
+                         p       = fmtPsmall(cand$p)),
               rownames = FALSE,
               # the position in use is the highlighted row
               selection = list(mode = "single",
                                selected = which(cand$last == placedFloater()$last)),
-              options = list(dom = "t", ordering = FALSE))
+              options = list(dom = "t", ordering = FALSE,
+                             columnDefs = list(list(className = "dt-right", targets = 3))))
   })
   
   # ── The floater's segments at its best-fit dates ─────────────────────────
@@ -2399,7 +2469,7 @@ shinyServer(function(session, input, output) {
       "Lag search (", p$lag.max, " years) must be less than the segment ",
       "length here (", a$seg.length, " years).")))
     tryDplR(do.call(corr.rwl.seg, c(
-      list(rwl = fo$rwlOut, master = masterRWL()),
+      list(rwl = oneSeries(fo$rwlCombined, fo$series.name), master = masterRWL()),
       a[c("seg.length", "bin.floor", "pcrit")],
       p[c(normArgs, "method", "lag.max")],
       list(make.plot = FALSE))))
@@ -2504,6 +2574,15 @@ shinyServer(function(session, input, output) {
       paste0(" Position chosen by the user (r = ", round(pf$r, 2), "); the best",
              " fit was ", pf$bestFirst, " to ", pf$bestLast, " (r = ",
              round(pf$bestR, 2), ").")
+    }
+    # saved on a short overlap although another position is stronger evidence
+    strong <- floaterStrongest(pf$floaterCorStats)
+    if (floaterDisagree(pf$floaterCorStats) && pf$isBest) {
+      how <- paste0(how, " The overlap with the master is ",
+                    pf$floaterCorStats$n[which.max(pf$floaterCorStats$r)],
+                    " years; ", strong$first, " to ", strong$last, " (r = ",
+                    round(strong$r, 2), " over ", strong$n,
+                    " years) is stronger evidence.")
     }
     runs <- tryCatch(lagRuns(crsFlagged(floaterSegs()), crsTested(floaterSegs())),
                      error = function(e) character(0))

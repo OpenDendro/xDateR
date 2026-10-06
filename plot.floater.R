@@ -39,8 +39,8 @@ plot.floater <- function(x, params = NULL, ...) {
   seg2col <- which(names(segs) == series.name)
   segs.axis2 <- names(segs)
   segs.axis4 <- names(segs)
-  segs.axis2[seq(2, n.col, by = 2)] <- NA
-  segs.axis4[seq(1, n.col, by = 2)] <- NA
+  segs.axis2[seq.col %% 2 == 0] <- NA
+  segs.axis4[seq.col %% 2 == 1] <- NA
   
   par(mfcol = c(2, 1))
   par(mar = c(-0.1, 5, 2, 5) + 0.1, mgp = c(1.1, 0.1, 0), tcl = 0.5,
