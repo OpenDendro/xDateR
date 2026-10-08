@@ -14,7 +14,8 @@
 #
 # Key design decisions:
 #   • Shared analysis parameters live in the sidebar under ONE set of input IDs
-#     (seg.length, bin.floor, n, pcrit, method, prewhiten, biweight). All
+#     (seg.length, bin.floor, lowFreq/n/nyrs, pcrit, method, prewhiten,
+#     ar.order.max, biweight). All
 #     panels read from these same IDs — no duplicated inputs per panel.
 #   • The Overview panel shows a welcome screen when no data is loaded and
 #     switches to the data view once a file is uploaded.
@@ -24,30 +25,36 @@
 #     analysis is fully reproducible. This is critical for scientific use.
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── Package management ────────────────────────────────────────────────────────
-# Install any missing packages on startup. This is intentional for deployment
-# on shared servers where packages may not be pre-installed.
-
-list.of.packages <- c("shiny", "rmarkdown", "markdown", "dplR",
-                      "DT", "shinyjs", "shinyWidgets", "plotly",
-                      "tidyverse", "RColorBrewer", "kableExtra",
-                      "bslib", "bsicons")
-
-new.packages <- list.of.packages[!(list.of.packages %in%
-                                     installed.packages()[, "Package"])]
-if (length(new.packages)) install.packages(new.packages, dependencies = TRUE)
-
+# ── Packages ──────────────────────────────────────────────────────────────────
+# Installed by renv (locally) and from manifest.json (on Posit Connect); see
+# the README. Nothing is installed at startup: installing on a live server
+# at app launch is slow and can leave the app on untested package versions.
+# The reports also use knitr and kableExtra, and load them themselves.
 library(shiny)
-library(markdown)
 library(rmarkdown)
 library(dplR)
+
+# xDateR uses dplR 1.8.0 features throughout (gap handling, nyrs and
+# ar.order.max, lag search, rwl.check(), xdate.report()). An older dplR
+# fails in confusing ways deep inside the app, so stop here and say why.
+if (packageVersion("dplR") < "1.8.0") {
+  stop("xDateR needs dplR 1.8.0 or later, but this R session loaded dplR ",
+       packageVersion("dplR"), " from ", dirname(find.package("dplR")),
+       ". Install a newer dplR (or run renv::restore()) and restart R.",
+       call. = FALSE)
+}
+
+# The version shown under About, so a user reporting a problem can say what
+# they were running. Change it with each deployment.
+xDateRVersion <- "2026.10"
+
+# Uploads: Shiny's limit of 5 MB is left as it is. The largest ring-width
+# file in the ITRDB (chin067, 597 series) is 3.1 MB.
+
 library(DT)
 library(shinyjs)
-library(shinyWidgets)
 library(plotly)
-library(tidyverse)
-library(RColorBrewer)
-library(kableExtra)
+library(dplyr)        # tile-plot data wrangling in plotlyCRSFunc.R
 library(bslib)
 library(bsicons)
 
@@ -98,14 +105,50 @@ sharedParams <- function() {
           selected = 10
         ),
         
-        # n: filter length for the Hanning filter used to remove low-frequency
-        # variation before correlation. NULL = no filter (prewhitening handles
-        # this instead, which is the recommended default).
-        selectInput(
-          inputId  = "n",
-          label    = "Hanning filter (n)",
-          choices  = c("NULL", seq(5, 13, by = 2)),
-          selected = "NULL"
+        # Low-frequency filter applied before correlation. dplR >= 1.8.0
+        # offers a Hanning filter (n) or a smoothing spline (nyrs), and they
+        # cannot both be set, so the user picks one. "None" leaves the
+        # low-frequency removal to prewhitening, the long-standing default.
+        tags$label(
+          "Low-frequency filter",
+          tooltip(
+            bs_icon("question-circle"),
+            paste(
+              "Removes slow growth trends before correlating.",
+              "None: rely on prewhitening alone (the default).",
+              "Hanning (n): a moving filter of n years; it trims years from",
+              "the ends of each series.",
+              "Spline (nyrs): divides each series by a smoothing spline of",
+              "this rigidity in years (values of 1 or less are a proportion",
+              "of each series' length), as COFECHA does with 32. It trims no",
+              "years, but cannot be used if any series in the master has a gap."
+            )
+          )
+        ),
+        radioButtons(
+          inputId  = "lowFreq",
+          label    = NULL,
+          choices  = c("None" = "none",
+                       "Hanning (n)" = "hanning",
+                       "Spline (nyrs)" = "spline"),
+          selected = "none"
+        ),
+        conditionalPanel(
+          condition = "input.lowFreq == 'hanning'",
+          selectInput(
+            inputId  = "n",
+            label    = "Hanning filter length (n)",
+            choices  = seq(5, 13, by = 2),
+            selected = 7
+          )
+        ),
+        conditionalPanel(
+          condition = "input.lowFreq == 'spline'",
+          numericInput(
+            inputId = "nyrs",
+            label   = "Spline rigidity (nyrs)",
+            value   = 32, min = 0.01, step = 1
+          )
         ),
         
         # pcrit: critical p-value for correlation significance. Segments with
@@ -114,6 +157,29 @@ sharedParams <- function() {
           inputId = "pcrit",
           label   = "P crit",
           value   = 0.05, min = 0, max = 1, step = 0.01
+        ),
+        
+        # lag.max: corr.rwl.seg() also correlates each segment with the master
+        # shifted by up to this many years and reports the best lag. Segments
+        # that fit better elsewhere are COFECHA's "B" flags. 0 turns it off.
+        tags$label(
+          "Lag search (\u00b1 years)",
+          tooltip(
+            bs_icon("question-circle"),
+            paste(
+              "Each segment is also correlated with the master shifted by up",
+              "to this many years. A segment that fits better at another lag",
+              "is flagged B and drawn purple: a negative lag suggests missing",
+              "rings, a positive lag false rings. Read the lags along a series:",
+              "the error is where the lag changes. 0 turns the search off.",
+              "Must be less than the segment length."
+            )
+          )
+        ),
+        numericInput(
+          inputId = "lag.max",
+          label   = NULL,
+          value   = 5, min = 0, max = 20, step = 1
         ),
         
         # method: correlation method passed to cor.test().
@@ -128,9 +194,48 @@ sharedParams <- function() {
         # This removes autocorrelation (red noise) and is the default in dplR.
         checkboxInput("prewhiten", "Prewhiten", value = TRUE),
         
+        # ar.order.max: cap on the AR model order used to prewhiten. Only
+        # meaningful when prewhitening, so shown only then. "Auto" lets ar()
+        # choose by AIC, which on long series can reach 20 or more; each
+        # order removes one year from the start of every series.
+        conditionalPanel(
+          condition = "input.prewhiten",
+          tags$label(
+            "Max AR order",
+            tooltip(
+              bs_icon("question-circle"),
+              paste(
+                "Upper limit on the order of the autoregressive model used to",
+                "prewhiten. Auto chooses by AIC. Prewhitening removes as many",
+                "years from the start of each series as the model's order.",
+                "COFECHA uses a maximum of 3."
+              )
+            )
+          ),
+          selectInput(
+            inputId  = "ar.order.max",
+            label    = NULL,
+            choices  = c("Auto (AIC)" = "NULL", 1:5),
+            selected = "NULL"
+          )
+        ),
+        
         # biweight: use Tukey's biweight robust mean for the master chronology.
         # Recommended when outliers may be present.
-        checkboxInput("biweight", "Biweight", value = TRUE)
+        checkboxInput("biweight", "Biweight", value = TRUE),
+        
+        # One click to the settings xdate.report() uses by default, which
+        # follow COFECHA: 50-yr segments lagged 25, 32-yr spline, AR order
+        # <= 3, Pearson, pcrit 0.01, lags to +/-10.
+        actionButton("cofechaPreset", "Use COFECHA-like settings",
+                     class = "xd-btn-quiet btn-sm w-100"),
+        helpText(class = "mt-1",
+                 "50-yr segments, 32-yr spline, AR order \u2264 3, Pearson,",
+                 "p < 0.01, lags \u00b110: the settings of dplR's",
+                 "COFECHA-style report."),
+        actionButton("resetParams", "Reset to defaults",
+                     icon = bs_icon("arrow-counterclockwise"),
+                     class = "xd-btn-quiet btn-sm w-100")
       )
     )
   )
@@ -148,17 +253,42 @@ sharedParams <- function() {
 appSidebar <- sidebar(
   width = 280,
   
-  # ── Dated series upload ──────────────────────────────────────────────────
-  # Always visible — this is the entry point for the app.
+  # ── Dated series: current file, switcher, upload ────────────────────────
+  # Always visible — this is the entry point for the app. The current file
+  # (name, size, span, gaps/edits) and, once more than one file has been
+  # loaded, a switcher are rendered in server.R. Each file keeps its own
+  # edits and master filter, so switching back finds the work where it was.
   h6("Dated Series", class = "text-muted fw-bold mt-1"),
-  fileInput(
-    inputId  = "file1",
-    label    = NULL,
-    multiple = FALSE,
-    accept   = c("text/plain", ".rwl", ".raw", ".txt")
+  uiOutput("datedFileUI"),
+  uiOutput("datedFileInfo"),
+  # The guided example: offered when the example data are loaded (server.R)
+  uiOutput("guideUI"),
+  # A standard fileInput shown as one button: its file-name box and progress
+  # bar are hidden by the .xd-upload CSS below, since the current file is
+  # shown above instead.
+  div(
+    class = "xd-upload",
+    fileInput(
+      inputId     = "file1",
+      label       = NULL,
+      multiple    = FALSE,
+      buttonLabel = tagList(bs_icon("folder2-open"), " Load a file\u2026"),
+      accept      = c("text/plain", "text/csv", ".rwl", ".raw", ".txt", ".csv", ".fh", ".xml")
+    )
   ),
-  helpText("Accepts Tucson, Heidelberg, compact, and TRiDaS .rwl formats."),
-  checkboxInput("useDemoDated", "Use example data", value = FALSE),
+  helpText("Tucson, Heidelberg, compact, TRiDaS, or .csv spreadsheets",
+           "(years down, series across)."),
+  # Start over: a fresh session for a user who is lost. Shown once a file is
+  # loaded; asks before discarding edits (see server.R).
+  shinyjs::hidden(
+    div(
+      id = "divStartOver",
+      actionButton("startOver", "Start over",
+                   icon  = bs_icon("arrow-counterclockwise"),
+                   class = "xd-btn-quiet btn-sm w-100 mt-1"),
+      helpText(class = "mt-1", "Clears all files and edits for a fresh start.")
+    )
+  ),
   
   hr(),
   
@@ -168,13 +298,23 @@ appSidebar <- sidebar(
     div(
       id = "divUndated",
       h6("Undated Series", class = "text-muted fw-bold"),
-      fileInput(
-        inputId  = "file2",
-        label    = NULL,
-        multiple = FALSE,
-        accept   = c("text/plain", ".rwl", ".raw", ".txt")
+      # Same widget as the dated file: current file and switcher (rendered
+      # in server.R) above a single upload button
+      uiOutput("undatedFileUI"),
+      uiOutput("undatedFileInfo"),
+      div(
+        class = "xd-upload",
+        fileInput(
+          inputId     = "file2",
+          label       = NULL,
+          multiple    = FALSE,
+          buttonLabel = tagList(bs_icon("folder2-open"), " Load a file\u2026"),
+          accept      = c("text/plain", "text/csv", ".rwl", ".raw", ".txt", ".csv", ".fh", ".xml")
+        )
       ),
-      checkboxInput("useDemoUndated", "Use example data", value = FALSE),
+      # The Floater guide: here, under the controls it talks about, so it is
+      # seen on the Floater panel, where every one of its steps happens
+      uiOutput("guideUIF"),
       hr()
     )
   ),
@@ -202,6 +342,9 @@ appSidebar <- sidebar(
     div(
       id = "divSharedParams",
       sharedParams(),
+      # The settings in effect, in one line, so they are visible without
+      # opening the accordion (rendered in server.R)
+      uiOutput("paramSummary"),
       hr()
     )
   ),
@@ -217,10 +360,42 @@ appSidebar <- sidebar(
         a("dplR", href = "https://github.com/OpenDendro/dplR/",
           target = "_blank"), "package. It provides an interactive environment",
         "for assessing dating quality and identifying and fixing problems."),
-      p(a(bs_icon("youtube"), " Video walkthrough",
-          href = "https://youtu.be/TbjZvnnYCy0", target = "_blank")),
       p(a(bs_icon("github"), " xDateR on GitHub",
           href = "https://github.com/OpenDendro/xDateR", target = "_blank")),
+      p(tags$small(
+        paste0("xDateR ", xDateRVersion, " \u00b7 dplR ", packageVersion("dplR"), "."),
+        "Something not working?",
+        a("Report a problem",
+          href = "https://github.com/OpenDendro/xDateR/issues", target = "_blank"),
+        "and say which versions these are and, if you can, attach the file.")),
+      # What changed in this version, for people who used the last one. The
+      # first two items change results, so they come first. Rewrite the list
+      # with each deployment (and change xDateRVersion above).
+      tags$details(
+        class = "small mb-2",
+        tags$summary(tags$strong(paste0("What's new in ", xDateRVersion))),
+        p(class = "mt-2 mb-1", tags$em("Two changes mean a file you checked",
+                                       "before can look different now:")),
+        tags$ul(
+          class = "ps-3",
+          tags$li(tags$strong("Lag search is on."), "Each segment is also tested",
+                  "up to 5 years either side of where it is dated. A segment that",
+                  "fits better somewhere else is purple. To see results as before,",
+                  "set Lag search to 0 in the Analysis Parameters."),
+          tags$li(tags$strong("Gaps are gaps."), "Years a file records no",
+                  "measurement for used to be read as zero-width rings. They are",
+                  "now shown as missing, and can be filled from the Overview.")),
+        p(class = "mb-1", tags$em("Also new:")),
+        tags$ul(
+          class = "ps-3",
+          tags$li("Data Checks on the Overview say in plain language what needs a look."),
+          tags$li("Hints say whether to look for a missing or a false ring, and where."),
+          tags$li("Every report has R code that reproduces your results, edits included."),
+          tags$li("Edits can be undone one at a time."),
+          tags$li("On the Floater panel you can compare candidate positions and choose one."),
+          tags$li("A spline can be used as the low-frequency filter."),
+          tags$li("Guided examples: look for \u201cShow me how\u201d in the sidebar."))
+      ),
       hr(),
       p(tags$strong("Please cite dplR if you use this app:")),
       p(tags$small(
@@ -290,6 +465,10 @@ panelCorrelations <- nav_panel(
   title = "Correlations",
   icon  = bs_icon("grid-3x3"),
   value = "AllSeriesTab",
+  # Prompt shown until a dated file is loaded; the content is hidden till then
+  uiOutput("noDataAllSeriesTab"),
+  shinyjs::hidden(div(
+    id = "contentAllSeriesTab",
   
   # QA alert banner — rendered in server.R, shown for tier 2/3 data issues
   uiOutput("qaAlertCorr"),
@@ -310,13 +489,16 @@ panelCorrelations <- nav_panel(
         "before correlation."),
       p("In the tile plot, each series appears as two rows:",
         tags$strong("blue"), "= p ≤ pcrit (good correlation);",
-        tags$strong("red"), "= p > pcrit (potential dating problem);",
+        tags$strong("red"), "= p > pcrit but best where dated (COFECHA's A flag);",
+        tags$strong("purple"), "= correlates better at another lag (COFECHA's B flag);",
         tags$strong("green"), "= incomplete overlap (no correlation calculated).",
         "Hover over any tile to see the series name, bin dates, and correlation value."),
       p("If a series is flagged, investigate it in the",
         tags$strong("Series"), "panel. You can temporarily remove problem series",
         "from the master using the filter below — useful when a badly dated series",
         "would corrupt the master and give misleading correlations for the others.",
+        "A removed series stays in your data: you can still test it against the",
+        "master in the Series panel, edit it, and download it.",
         "Proceed to the", tags$strong("Series"), "tab to investigate individual series.")
     )
   ),
@@ -335,14 +517,19 @@ panelCorrelations <- nav_panel(
           "master chronology built from all other series (leave-one-out).",
           "Each series appears as two rows of coloured tiles:",
           "blue = p \u2264 pcrit (good correlation),",
-          "red = p > pcrit (potential dating problem),",
+          "red = p > pcrit but best where dated (A),",
+          "purple = correlates better at another lag (B; hover for the lag),",
           "green = incomplete overlap with master (no correlation calculated).",
-          "Adjust parameters in the sidebar and click 'Update Master' to",
-          "recompute. Flagged series should be investigated in the Series tab."
+          "The plot recomputes when the Analysis Parameters change; 'Update",
+          "Master' applies the series filter below. Flagged series should be",
+          "investigated in the Series tab."
         ),
         placement = "right"
       )
     ),
+    helpText(class = "mb-0",
+             "Click a segment, or a row of Flagged Segments below, to open that",
+             "series on the Series panel with the Edit window on that segment."),
     # Height is computed dynamically in server.R based on number of series.
     uiOutput("crsPlotUI")
   ),
@@ -354,62 +541,91 @@ panelCorrelations <- nav_panel(
       "Filter Series from Master",
       tooltip(
         bs_icon("question-circle"),
-        "Uncheck series to remove them from the master chronology.
-         Click 'Update Master' to recompute. Filtering here does not
-         permanently remove series — use the Edit panel for that."
+        "Pick series to leave out of the master chronology, then click
+         'Update Master'. Click the x on a name to put it back. Series
+         left out stay in your data: they can still be tested, edited
+         and downloaded. Type to search."
       )
     ),
-    div(
-      style = "min-height: 80px;",
-      awesomeCheckboxGroup(
-        inputId  = "master",
-        label    = NULL,
-        inline   = TRUE,
-        choices  = c("")
-      )
-    ),
-    actionButton(
-      inputId = "updateMasterButton",
-      label   = "Update Master",
-      class   = "btn-primary btn-sm"
+    # One searchable box rather than a checkbox per series: it reads the
+    # right way round (empty = every series is in the master) and works for
+    # files with hundreds of series.
+    #   closeAfterSelect: the list closes after each pick. Left open, it
+    #     covered the content below and gave no obvious way to dismiss it.
+    #   remove_button: an x on each chosen series.
+    # The button sits beside the box, not under it, so the list (which
+    # opens downwards) can never cover it.
+    layout_columns(
+      col_widths = c(9, 3),
+      selectizeInput(
+        inputId  = "leaveOut",
+        label    = "Series left out of the master",
+        choices  = NULL,
+        multiple = TRUE,
+        width    = "100%",
+        options  = list(placeholder = "None: every series is in the master",
+                        closeAfterSelect = TRUE,
+                        # the list is attached to the page, or the card's
+                        # layout clips it to a sliver
+                        dropdownParent = "body",
+                        plugins = list("remove_button"))
+      ),
+      div(class = "form-group shiny-input-container w-100",
+          tags$label(class = "control-label", HTML("&nbsp;")),
+          actionButton(
+            inputId = "updateMasterButton",
+            label   = "Update Master",
+            class   = "btn-primary w-100"
+          ))
     )
   ),
   
+  # DTOutput(fill = FALSE) throughout this panel: with the default
+  # (fill = TRUE) bslib gives a table in a card a fixed height and its own
+  # scrollbar, so the page scrolls inside the card.
+  # ── Flagged segments, full width: what to act on ───────────────────────
+  # (It used to share a row with the two tables below, in a third of the
+  # width, which pushed its Lag and Gain columns out of sight.)
+           card(
+             fill = FALSE,
+             card_header(
+               "Flagged Segments",
+               tooltip(bs_icon("question-circle"),
+                       "COFECHA-style flags. A: correlation under pcrit, but
+                   the dated position is the best tested (weak, not misdated).
+                   B: correlates better at another lag; a negative lag suggests
+                   missing rings, positive false rings. Gain is how much the
+                   correlation improves at that lag. 'Weak' B segments are
+                   under the critical value even at their best lag: read them
+                   as low correlations. Check B segments on the wood, using
+                   the Series and Edit panels.")
+             ),
+             DTOutput("crsFlags", fill = FALSE)
+           ),
+  
   # ── Summary tables ─────────────────────────────────────────────────────
-  fluidRow(
-    column(4,
-           card(
-             fill = FALSE,
-             card_header(
-               "Overall Correlation",
-               tooltip(bs_icon("question-circle"),
-                       "Mean correlation across all bins for each series.")
-             ),
-             DTOutput("crsOverall")
-           )
+  layout_columns(
+    col_widths = c(6, 6),
+    card(
+      fill = FALSE,
+      card_header(
+        "Overall Correlation",
+        tooltip(bs_icon("question-circle"),
+                "Each series' correlation with the master over its whole
+                 length, with its p-value. Shaded rows are not significant
+                 at P crit.")
+      ),
+      DTOutput("crsOverall", fill = FALSE)
     ),
-    column(4,
-           card(
-             fill = FALSE,
-             card_header(
-               "Avg. Correlation by Bin",
-               tooltip(bs_icon("question-circle"),
-                       "Mean interseries correlation within each time bin.")
-             ),
-             DTOutput("crsAvgCorrBin")
-           )
-    ),
-    column(4,
-           card(
-             fill = FALSE,
-             card_header(
-               "Flagged Series / Segments",
-               tooltip(bs_icon("question-circle"),
-                       "Series and segments with p > pcrit. Investigate these
-                   in the Series panel.")
-             ),
-             DTOutput("crsFlags")
-           )
+    card(
+      fill = FALSE,
+      card_header(
+        "Avg. Correlation by Bin",
+        tooltip(bs_icon("question-circle"),
+                "Mean correlation with the master within each time bin,
+                 across the series that fill it.")
+      ),
+      DTOutput("crsAvgCorrBin", fill = FALSE)
     )
   ),
   
@@ -421,15 +637,46 @@ panelCorrelations <- nav_panel(
       icon  = bs_icon("table"),
       tooltip(
         bs_icon("question-circle"),
-        "Full table of Spearman rho values for each series by bin.
-         Bold values exceed the pcrit threshold."
+        "Each series' correlation with the master in each bin, by the
+         method chosen in the Analysis Parameters. Shaded as in the tile
+         plot: red = under the critical value but best where dated (A),
+         purple = fits better at another lag (B)."
       ),
-      DTOutput("crsCorrBin")
+      DTOutput("crsCorrBin", fill = FALSE)
     )
   ),
   
-  div(class = "mt-2",
-      downloadButton("crsReport", "Generate report"))
+  layout_columns(
+    col_widths = c(4, 8),
+    div(class = "mt-2",
+        downloadButton("crsReport", "Generate report")),
+    card(
+      fill = FALSE,
+      card_header(
+        "COFECHA-style report",
+        tooltip(
+          bs_icon("question-circle"),
+          paste("A crossdating report laid out like COFECHA's output, from",
+                "dplR's xdate.report(): series statistics, correlations by",
+                "segment with A and B flags, the flagged segments with their",
+                "lags and gains, and the data checks from rwl.check(). It uses",
+                "the current Analysis Parameters and master filter, and",
+                "records every setting.")
+        )
+      ),
+      layout_columns(
+        col_widths = c(5, 7),
+        selectInput("cofechaType", NULL,
+                    choices = c("HTML" = "html", "Text (ITRDB layout)" = "text",
+                                "Markdown" = "markdown")),
+        div(id = "divCofechaDownload",
+            downloadButton("cofechaReport", "Download COFECHA-style report",
+                           class = "btn-sm"))
+      ),
+      uiOutput("cofechaNote")
+    )
+  )
+  ))
 )
 
 
@@ -457,6 +704,10 @@ panelSeries <- nav_panel(
   title = "Series",
   icon  = bs_icon("activity"),
   value = "IndividualSeriesTab",
+  # Prompt shown until a dated file is loaded; the content is hidden till then
+  uiOutput("noDataIndividualSeriesTab"),
+  shinyjs::hidden(div(
+    id = "contentIndividualSeriesTab",
   
   # Alert banner: shows which series were flagged (rendered conditionally)
   uiOutput("flaggedSeriesUI"),
@@ -470,7 +721,8 @@ panelSeries <- nav_panel(
       p("Select a series from the sidebar to investigate it in detail. The",
         "selected series is always removed from the master chronology (leave-one-out).",
         "You can also filter additional series from the master using the Correlations",
-        "panel filter — those choices persist here."),
+        "panel filter — those choices persist here. A series left out of the master",
+        "can still be selected here: it is tested against the master built from the others."),
       p(tags$strong("Segment Correlations"), " (",
         a("corr.series.seg()", href = "https://rdrr.io/cran/dplR/man/corr.series.seg.html",
           target = "_blank"), "): horizontal bars show the correlation for each",
@@ -522,19 +774,21 @@ panelSeries <- nav_panel(
                    value = 5, min = 1, max = 100, step = 1),
       uiOutput("rangeCCF")
     ),
-    plotOutput("ccfPlot", height = "400px")
+    # height set in server.R from the number of segments drawn
+    plotOutput("ccfPlot", height = "auto")
   ),
   
   # ── Dating notes ───────────────────────────────────────────────────────
   card(
     fill = FALSE,
     card_header(
-      "Dating Notes",
+      textOutput("notesTitle", inline = TRUE),
       tooltip(bs_icon("question-circle"),
-              "Notes are included verbatim in the generated report. Use this to
-               document your interpretation — e.g. 'series appears to be missing
-               a ring near 1850, correlations improve after deletion'. This record
-               is important for reproducibility.")
+              "Notes are kept separately for each series and included verbatim
+               in that series' report. Use this to document your interpretation
+               — e.g. 'series appears to be missing a ring near 1850,
+               correlations improve after deletion'. This record is important
+               for reproducibility.")
     ),
     textAreaInput(
       inputId     = "datingNotes",
@@ -548,6 +802,7 @@ panelSeries <- nav_panel(
   
   div(class = "mt-2",
       downloadButton("cssReport", "Generate report"))
+  ))
 )
 
 
@@ -577,6 +832,10 @@ panelEdit <- nav_panel(
   title = "Edit",
   icon  = bs_icon("pencil-square"),
   value = "EditSeriesTab",
+  # Prompt shown until a dated file is loaded; the content is hidden till then
+  uiOutput("noDataEditSeriesTab"),
+  shinyjs::hidden(div(
+    id = "contentEditSeriesTab",
   
   # ── Instructions ──────────────────────────────────────────────────────
   accordion(
@@ -588,7 +847,10 @@ panelEdit <- nav_panel(
         tags$li("Select a series in the sidebar (carry over from the Series panel)."),
         tags$li("Use the", tags$strong("Window Center"), "slider to scroll to the area you want to edit."),
         tags$li("Adjust", tags$strong("Window Width"), "— the measurements table scrolls to match."),
-        tags$li("Click a row in the table to select a measurement."),
+        tags$li("Click a row in the table to select a measurement. Rows marked",
+                tags$em("gap"), "are years with no measurement; they keep their",
+                "place so the years after them stay correct. A gap row can't be",
+                "deleted; fill absent rings with zero from the Overview panel."),
         tags$li("Use", tags$strong("Delete Selected Row"), "or", tags$strong("Insert Above Selected Row"), "to make your edit."),
         tags$li("Return to the", tags$strong("Series"), "panel to assess the effect of the edit."),
         tags$li("Repeat for other series as needed."),
@@ -617,10 +879,15 @@ panelEdit <- nav_panel(
     plotOutput("xskelPlot", height = "400px"),
     layout_columns(
       col_widths = c(6, 6),
-      uiOutput("winCenter"),
+      uiOutput("winCenter.ui"),
       uiOutput("winWidth.ui")
     )
   ),
+  
+  # ── The selected series against the master: as loaded, and now ────────
+  # What is wrong with this series before editing, and whether an edit
+  # helped, without leaving the panel (rendered in server.R).
+  uiOutput("editEffectUI"),
   
   # ── Edit controls + measurements table ────────────────────────────────
   fluidRow(
@@ -634,11 +901,7 @@ panelEdit <- nav_panel(
                  h6("Remove Ring"),
                  actionButton("deleteRows", "Delete Selected Row",
                               class = "btn-danger btn-sm w-100"),
-                 checkboxInput("deleteRingFixLast", "Fix Last Year", value = TRUE),
-                 helpText("Removes the selected measurement. If 'Fix Last Year' is
-                      checked, the outer (most recent) year is preserved and
-                      all earlier years shift forward by one. Uncheck to fix
-                      the first year instead.")
+                 helpText(class = "mt-2", "Removes the selected measurement.")
                ),
                div(
                  h6("Insert Ring"),
@@ -646,11 +909,16 @@ panelEdit <- nav_panel(
                               value = 0, min = 0, step = 0.01),
                  actionButton("insertRows", "Insert Above Selected Row",
                               class = "btn-success btn-sm w-100"),
-                 checkboxInput("insertRingFixLast", "Fix Last Year", value = TRUE),
-                 helpText("Inserts a new row above the selected measurement with the
-                      value specified. The same Fix Last Year logic applies.")
+                 helpText(class = "mt-2", "Inserts a new row above the selected
+                      measurement with the value given.")
                )
-             )
+             ),
+             # One setting for both actions (there used to be a checkbox each)
+             checkboxInput("fixLast", "Fix Last Year", value = TRUE),
+             helpText("Checked: the outer (most recent) year of the series keeps
+                  its date, and the rings before the edit move by one year, as
+                  for a core with a known bark date. Unchecked: the first year
+                  is kept and the later rings move.")
            )
     ),
     column(4,
@@ -679,16 +947,23 @@ panelEdit <- nav_panel(
         fill = FALSE,
         card_header("Save or Revert"),
         layout_columns(
-          col_widths = c(6, 6),
+          col_widths = c(4, 4, 4),
+          div(
+            actionButton("undoEdit", "Undo Last Edit",
+                         icon  = bs_icon("arrow-counterclockwise"),
+                         class = "xd-btn-quiet btn-sm w-100"),
+            helpText("Takes back the most recent edit in the log below.")
+          ),
           div(
             actionButton("revertSeries", "Revert All Changes",
                          class = "btn-warning btn-sm w-100"),
-            helpText("Undoes all edits and resets the edit log.")
+            helpText("Undoes all edits, including gap fills, and resets the edit log.")
           ),
           div(
             downloadButton("downloadRWL", "Download edited .rwl",
                            class = "w-100"),
-            helpText("Written in Tucson/decadal format, readable by
+            helpText("Every series in the file, including any left out of the
+                      master. Written in Tucson/decadal format, readable by
                       dplR::read.rwl() and standard dendro software.")
           )
         ),
@@ -700,6 +975,7 @@ panelEdit <- nav_panel(
       )
     )
   )
+  ))
 )
 
 
@@ -709,15 +985,15 @@ panelEdit <- nav_panel(
 # For dating series with unknown or uncertain dates — "floating" series that
 # need to be positioned against a dated master chronology.
 #
-# Uses xdate.floater() (defined in xdate.floater.R — not yet in dplR CRAN
-# release but will be in the next version). This function slides the undated
-# series along the master chronology and computes the correlation at each
-# possible position, identifying the best-fit date range.
+# Uses dplR's xdate.floater(), which slides the undated series along the
+# master chronology and computes the correlation at each possible position,
+# identifying the best-fit date range. It uses the sidebar's analysis
+# parameters (filter, prewhitening, biweight, method) and the master as
+# filtered on the Correlations panel.
 #
-# The floater panel has its own separate parameter inputs (seg.lengthUndated,
-# bin.floorUndated, pcritUndated) because floater analysis is often run with
-# different settings — typically longer segments and more lenient pcrit — than
-# the main crossdating analysis.
+# The cross-correlation card has its own segment length, bin floor and pcrit
+# (seg.lengthUndated, bin.floorUndated, pcritUndated) because the floater is
+# often checked with different segments than the main crossdating.
 #
 # Workflow:
 #   1. Load a dated .rwl file (the master)
@@ -725,10 +1001,6 @@ panelEdit <- nav_panel(
 #   3. Select a series from the undated file
 #   4. Review the correlation plot and best-fit dates
 #   5. Save the dated series, then download the combined .rwl
-#
-# Note: reproducible R code is not yet available in the generated report
-# because xdate.floater() is not yet on CRAN. This will be updated when the
-# function is included in the next dplR release.
 
 panelFloater <- nav_panel(
   title = "Floater",
@@ -742,8 +1014,7 @@ panelFloater <- nav_panel(
       title = "How to use this panel",
       icon  = bs_icon("info-circle"),
       p("This panel dates undated series by sliding them against a",
-        "dated master chronology using", tags$code("xdate.floater()"), "— a function",
-        "currently in development in dplR. The function computes the",
+        "dated master chronology using dplR's", tags$code("xdate.floater()"), ". It computes the",
         "correlation between the undated series and the master at every possible",
         "position, identifying the best-fit date range."),
       p("To get started:"),
@@ -757,19 +1028,24 @@ panelFloater <- nav_panel(
                 "shows the correlation at each candidate end year. The light blue band is the",
                 "5th\u201395th percentile of typical interseries correlation in the master \u2014",
                 "ideally the series peak should fall well within or above this band."),
-        tags$li("Check the", tags$strong("Cross-Correlation by Segment"), "plot: a clean peak at",
-                "lag 0 supports the proposed dating. A peak at lag \u00b11 or \u00b12 suggests the",
-                "dates may still be off by that many years."),
+        tags$li("Check", tags$strong("how clear-cut the fit is"), ": in Candidate positions the",
+                "next best should correlate well below the best. If they are close, the dating is",
+                "ambiguous. To use another position, click its row, or enter the last year by hand."),
+        tags$li("Check the", tags$strong("Segments at These Dates"), ": every segment",
+                "should fit best where dated. A run of segments that fit better a year off",
+                "means a ring problem inside the series; the summary above the table says",
+                "which segment to look in and whether to look for a missing or a false ring.",
+                "The cross-correlation plot below shows the same thing by segment."),
         tags$li("If satisfied, click", tags$strong("Save These Dates"), "then repeat for other",
                 "series as needed."),
         tags$li("Click", tags$strong("Download dated .rwl"), "to export. Optionally append the",
                 "master chronology to the output file.")
       ),
-      p(helpText("The Floater panel uses its own Segment Length, Bin Floor, and P crit controls",
-                 "(visible once an undated file is loaded) as a way of looking at lagged correlations",
-                 "given the best matched dates for the floating series. This gives the user",
-                 "an idea of not only the best match overall but helps them think about possible",
-                 "dating issues within the flaoter itself."))
+      p(helpText("The search uses the Analysis Parameters in the sidebar and the master as",
+                 "filtered on the Correlations panel. The Cross-Correlation card has its own",
+                 "Segment Length, Bin Floor, and P crit controls for looking at lagged",
+                 "correlations at the best-matched dates. This shows not only the best match",
+                 "overall but also possible dating problems within the floater itself."))
     )
   ),
   
@@ -805,6 +1081,8 @@ panelFloater <- nav_panel(
             uiOutput("floaterControls"),
             hr(),
             htmlOutput("floaterText"),
+            # candidate positions, a year entered by hand, and what is in use
+            uiOutput("floaterPositionUI"),
             hr(),
             actionButton("saveDates",   "Save These Dates",
                          class = "btn-primary btn-sm w-100"),
@@ -821,19 +1099,30 @@ panelFloater <- nav_panel(
       card(
         fill = FALSE,
         card_header(
-          "Cross-Correlation by Segment",
+          "Segments at These Dates",
           tooltip(bs_icon("question-circle"),
-                  paste("Cross-correlations between the undated series (placed at its",
-                        "best-fit dates) and the master chronology for each segment.",
-                        "A clean peak at lag 0 supports the proposed dating.",
-                        "A peak at lag ±1 or ±2 suggests the dates may still be off."))
+                  paste("The undated series, placed at the dates in use (the best fit",
+                        "unless you chose another position), tested",
+                        "segment by segment against the master, with the lag search",
+                        "from the Analysis Parameters. A series can fit best overall",
+                        "and still have segments that fit better a year off, which means",
+                        "a ring problem inside it. The summary says which segment to look",
+                        "in. Note the reading of the lag: a floater is placed by the part",
+                        "that fits, so when the lagged run comes after correctly placed",
+                        "segments, lag -1 points to a false ring and +1 to a missing one,",
+                        "the reverse of a series dated from the bark. Flags as on the",
+                        "Correlations panel. Below,",
+                        "the cross-correlations by segment: a clean peak at lag 0",
+                        "supports the dating."))
         ),
         uiOutput("floaterCCFParams"),
-        plotOutput("ccfPlotUndated", height = "400px")
+        uiOutput("floaterSegsUI"),
+        h6(class = "mt-3", "Cross-correlations by segment"),
+        plotOutput("ccfPlotUndated", height = "auto")
       ),
       card(
         fill = FALSE,
-        card_header("Dating Notes"),
+        card_header(textOutput("undatedNotesTitle", inline = TRUE)),
         textAreaInput(
           inputId     = "undatingNotes",
           label       = NULL,
@@ -845,18 +1134,27 @@ panelFloater <- nav_panel(
       ),
       fluidRow(
         column(6,
-               downloadButton("downloadUndatedRWL", "Download dated .rwl"),
-               br(), br(),
-               checkboxInput("appendMaster", "Append master chronology?",
-                             value = FALSE),
-               helpText("If checked, the dated master series are appended to the
-                    output file. Written in Tucson/decadal format.")
+               # The download appears once a series' dates have been saved
+               # (toggled in server.R); until then, say what to do.
+               div(id = "divUndatedNone",
+                   helpText(bs_icon("info-circle"),
+                            "Nothing to download yet. Click", tags$strong("Save These Dates"),
+                            "to keep this series' dates; the download will appear here.")),
+               shinyjs::hidden(div(
+                 id = "divUndatedDownload",
+                 downloadButton("downloadUndatedRWL", "Download dated .rwl"),
+                 br(), br(),
+                 checkboxInput("appendMaster", "Append the master series?",
+                               value = FALSE),
+                 helpText("If checked, the series that build the master (with any
+                      edits) are appended to the output; series left out of the
+                      master are not. Written in Tucson/decadal format.")
+               ))
         ),
         column(6,
                downloadButton("undatedReport", "Generate report"),
                br(), br(),
-               helpText("Note: reproducible R code will be available in a future
-                    release when xdate.floater() is added to dplR on CRAN.")
+               helpText("Includes the R code to reproduce the search with dplR.")
         )
       )
     )
@@ -874,17 +1172,47 @@ panelFloater <- nav_panel(
 
 ui <- tagList(
   useShinyjs(),   # required for sidebar show/hide of divUndated
+  # Ask before the tab is closed or reloaded while there is unsaved work.
+  # The server says when there is (custom message xdUnsaved, see server.R).
+  tags$script(HTML("
+    window.xdUnsaved = false;
+    $(document).on('shiny:connected', function() {
+      Shiny.addCustomMessageHandler('xdUnsaved', function(x) { window.xdUnsaved = x; });
+    });
+    window.addEventListener('beforeunload', function(e) {
+      if (window.xdUnsaved) { e.preventDefault(); e.returnValue = ''; }
+    });
+  ")),
   tags$head(
     tags$style(HTML("
       /* Remove bslib default card max-height so cards grow with content */
       .card { max-height: none !important; }
       /* Give each panel bottom breathing room */
       .tab-pane { padding-bottom: 3rem; }
+      /* Secondary buttons in body-text colour: Flatly's dark and
+         secondary outlines are a pale grey that reads as disabled */
+      .btn.xd-btn-quiet { color: var(--bs-body-color); border: 1px solid var(--bs-body-color);
+                          background: transparent; }
+      .btn.xd-btn-quiet:hover { background: var(--bs-gray-200); }
+      /* File upload shown as a single full-width button (see appSidebar) */
+      .xd-upload .shiny-input-container { margin-bottom: 0.25rem; width: 100%; }
+      .xd-upload .input-group > .form-control,
+      .xd-upload .progress { display: none; }
+      .xd-upload .input-group-btn,
+      .xd-upload .input-group-prepend,
+      .xd-upload .btn-file { width: 100%; }
+      .xd-upload .btn-file { border-radius: var(--bs-border-radius) !important;
+                             background-color: var(--bs-primary);
+                             border-color: var(--bs-primary); color: #fff; }
     "))
   ),
   page_navbar(
     title = "xDateR",
     id    = "navbar",
+    # Panels scroll rather than fill the window. With bslib's default
+    # (fillable = TRUE) each panel is a flex container that shrinks its
+    # cards to fit the viewport, clipping plots and tables on short screens.
+    fillable = FALSE,
     theme = bs_theme(
       version    = 5,
       bootswatch = "flatly",
@@ -892,6 +1220,10 @@ ui <- tagList(
       base_font  = font_google("IBM Plex Sans")
     ),
     sidebar = appSidebar,
+    # A spinner on any output that is recalculating, and a pulse at the top
+    # of the page while the server is busy, so a long computation on a large
+    # file doesn't look like a hang
+    header = useBusyIndicators(),
     
     panelOverview,
     panelCorrelations,

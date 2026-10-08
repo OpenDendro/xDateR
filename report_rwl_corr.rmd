@@ -4,45 +4,46 @@ output: html_document
 params:
   fileName: NA
   crsObject: NA
-  crsParams: NA
+  flagged: NA
+  xdParams: NA
+  excluded: NA
+  editDF: NA
+  editCode: NA
+  helpers: NA
 ---
 
- 
-
-```{r,echo=FALSE}
+```{r setup, echo=FALSE, message=FALSE}
+library(dplR)
 library(DT)
 library(knitr)
 library(kableExtra)
+source(params$helpers)
 crsObject <- params$crsObject
-crsParams <- params$crsParams
-```
-
-
-```{r,echo=FALSE}
-if(is.null(params$fileName)){
-  fname <- "DemoData.rwl"
-}
-
-if(!is.null(params$fileName)){
-  fname <- params$fileName
-  }
-
+p         <- params$xdParams
+excluded  <- params$excluded
+fname     <- if (is.null(params$fileName)) "DemoData.rwl" else params$fileName
+ed        <- params$editDF
+edited    <- nrow(ed) > 0
+crsArgs   <- c("seg.length", "bin.floor", normArgs, "pcrit", "method", "lag.max")
 ```
 
 ### Date: `r Sys.Date()`
 
 ### File: `r fname`
 
+`r if (edited) paste0("**Edits:** the data analysed here include ", nrow(ed), " edit(s) made in xDateR, listed in the edit report. The R code below replays them before the analysis.")`
+
+`r if (fname %in% c("xDateRtest.rwl", "xDateRtestUndated.rwl")) "The example data are in the data folder of the xDateR repository: https://github.com/OpenDendro/xDateR"`
+
+`r if (length(excluded) > 0) paste0("**Series left out of the master:** ", paste(excluded, collapse = ", "), ".")`
+
 #### Arguments:
 
 ```{r,echo=FALSE}
-tab1 <- data.frame(Parameter=c("seg.length","bin.floor","n",
-                               "prewhiten","pcrit","biweight","method"),
-                   Value=c(crsObject$seg.length,crsParams$bin.floor,
-                           crsParams$n, crsParams$prewhiten, 
-                           crsParams$pcrit, crsParams$biweight,
-                           crsParams$method))
-kable(tab1) %>%
+fmt <- function(v) if (is.null(v)) "NULL" else as.character(v)
+tab1 <- data.frame(Parameter = crsArgs,
+                   Value     = vapply(p[crsArgs], fmt, ""))
+kable(tab1, row.names = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
@@ -54,17 +55,23 @@ plot(crsObject)
 
 <div style = "width:80%; height:auto; margin: auto;">
 ```{r,echo=FALSE}
-overallCor <- round(crsObject$overall,3)
-res <- data.frame(Series=rownames(overallCor),
-                  Correlation=overallCor[,1])
-datatable(res,rownames = FALSE, 
-          caption = "Overall Series Correlation",
+res <- data.frame(Series = rownames(crsObject$overall),
+                  Correlation = round(crsObject$overall[, 1], 3),
+                  p = fmtP(crsObject$overall[, 2]),
+                  pnum = crsObject$overall[, 2],
+                  stringsAsFactors = FALSE)
+datatable(res,rownames = FALSE,
+          caption = "Overall Series Correlation (shaded: not significant at P crit)",
           autoHideNavigation=TRUE,
           options = list(pageLength = nrow(res),
                          searching=FALSE,
-                         lengthChange=FALSE)) %>%
-  formatStyle('Correlation', 
-              fontWeight = styleInterval(crsObject$pcrit, c('normal', 'bold')))
+                         lengthChange=FALSE,
+                         columnDefs = list(
+                           list(visible = FALSE, targets = 3),
+                           list(orderData = 3, className = 'dt-right', targets = 2)))) %>%
+  formatStyle('pnum', target = 'row',
+              backgroundColor = styleInterval(crsObject$pcrit - 1e-12,
+                                              c('transparent', '#fde4e4')))
 ```
 
 
@@ -72,66 +79,75 @@ datatable(res,rownames = FALSE,
     binNames <- paste(crsObject$bins[,1], "-", crsObject$bins[,2], sep="")
     res <- data.frame(series=binNames,round(crsObject$avg.seg.rho,3))
     colnames(res) <- c("Bin","Correlation")
-    datatable(res,rownames = FALSE, 
+    res <- res[!is.na(res$Correlation), ]
+    datatable(res,rownames = FALSE,
               caption = "Avg. Correlation by Bin",
               autoHideNavigation=TRUE,
               options = list(pageLength = min(30,nrow(res)),
                              searching=FALSE,
-                             lengthChange=FALSE)) %>%
-      formatStyle('Correlation', 
-                  fontWeight = styleInterval(crsObject$pcrit, c('normal', 'bold')))
+                             lengthChange=FALSE))
 ```
 
 ```{r,echo=FALSE}
-flags <- crsObject$flags
-flagsLogical <- length(flags) == 0
+f <- params$flagged
+noFlags <- is.null(f) || nrow(f) == 0
 ```
 </div>
 
-`r if(flagsLogical){"There are no flagged Series / Segments"}`
+`r if (noFlags) "There are no flagged segments."`
+
+`r if (!noFlags) "#### Flagged Segments"`
+
+`r if (!noFlags) paste0("A: correlation under pcrit, but best where dated. B: correlates better at another lag (searched to ±", crsObject$lag.max, " years); a negative lag suggests missing rings, a positive lag false rings. A weak B is under the critical value even at its best lag.")`
 
 ```{r,echo=FALSE}
-if(!flagsLogical){
-  flags <- unlist(flags)
-  flagsDF <- data.frame(Series=names(flags),
-                        Bins=gsub(pattern = "\\.",
-                                  replacement = "-",
-                                  x = flags))  
-  kable(flagsDF,row.names = FALSE, caption = "Flagged Series and Segments")  
+if (!noFlags) {
+  flagsDF <- data.frame(Series  = f$series,
+                        Segment = paste0(f$from, "-", f$to),
+                        Flag    = ifelse(f$weak, "B (weak)", f$flag),
+                        r       = round(f$r.dated, 3),
+                        Lag     = ifelse(f$flag == "B", sprintf("%+d", as.integer(f$best.lag)), ""),
+                        r.lag   = round(f$r.lag, 3),
+                        Gain    = round(f$gain, 3))
+  kable(flagsDF, row.names = FALSE) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 }
 ```
 
 ```{r,echo=FALSE}
     binNames <- paste(crsObject$bins[,1], "-", crsObject$bins[,2], sep="")
-    res <- round(crsObject$spearman.rho,3)
-    res <- data.frame(series=rownames(res),res)
-    colnames(res) <- c("Series",binNames)
-    datatable(res,rownames = FALSE, 
-              caption = "Series Correlation by Bin",
+    rho <- round(crsObject$spearman.rho,3)
+    flag <- ifelse(crsObject$best.lag != 0, "B",
+                   ifelse(crsObject$p.val >= crsObject$pcrit, "A", ""))
+    flag[is.na(flag)] <- ""
+    nb <- ncol(rho)
+    res <- data.frame(Series = rownames(rho), rho, flag, check.names = FALSE,
+                      stringsAsFactors = FALSE)
+    colnames(res) <- c("Series", binNames, paste0("flag", seq_len(nb)))
+    datatable(res,rownames = FALSE,
+              caption = "Series Correlation by Bin (red: A, under the critical value but best where dated; purple: B, fits better at another lag)",
               autoHideNavigation=TRUE,
               options = list(pageLength = min(30,nrow(res)),
                              searching=TRUE,
-                             lengthChange=FALSE)) %>%
-      formatStyle(columns=-1, 
-                  fontWeight = styleInterval(crsObject$pcrit, c('normal', 'bold')))
+                             lengthChange=FALSE,
+                             scrollX=TRUE,
+                             columnDefs = list(list(visible = FALSE,
+                                                    targets = nb + seq_len(nb))))) %>%
+      formatStyle(columns = binNames, valueColumns = paste0("flag", seq_len(nb)),
+                  backgroundColor = styleEqual(c("A", "B"), c("#fde4e4", "#ead9f5")))
 ```
 
 
 ### R Code
-```
-library(dplR)
-dat <- read.rwl("`r fname`")
-crs <- corr.rwl.seg(dat, 
-                    seg.length = `r crsObject$seg.length`, 
-                    bin.floor = `r crsParams$bin.floor`,
-                    n = `r crsParams$n`,
-                    prewhiten = `r crsParams$prewhiten`, 
-                    pcrit = `r crsParams$pcrit`,
-                    biweight = `r crsParams$biweight`, 
-                    method = "`r crsParams$method`",
-                    make.plot=TRUE)
-# data in the tables above are available in the 
-# crs object via the list elements. e.g.
-str(crs)
-crs$overall
+```{r, echo=FALSE, comment=""}
+cat(
+  paste(dataCode(fname, ed, params$editCode), collapse = "\n"), '\n\n',
+  if (length(excluded) > 0) paste0(
+    '# series left out of the master\n',
+    'dat <- dat[, setdiff(names(dat), ', vecCode(excluded), '), drop = FALSE]\n'),
+  'crs <- corr.rwl.seg(dat,\n    ', argCode(p, crsArgs), ',\n    make.plot = TRUE)\n',
+  '# data in the tables above are available in the\n',
+  '# crs object via the list elements. e.g.\n',
+  'str(crs)\n',
+  'crs$overall\n', sep = "")
 ```

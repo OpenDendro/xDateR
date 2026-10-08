@@ -1,45 +1,125 @@
 ---
-title: "Report: Description of RWL File"
+title: "Report: Data Overview"
 output: html_document
 params:
   fileName: NA
   rwlObject: NA
   rwlPlotType: NA
+  editDF: NA
+  editLog: NA
+  editCode: NA
+  checks: NA
+  rwlReport: NA
+  helpers: NA
 ---
 
-```{r,echo=FALSE}
-if(is.null(params$fileName)){
-  fname <- "DemoData.rwl"
-}
-
-if(!is.null(params$fileName)){
-  fname <- params$fileName
-  }
-
+```{r setup, echo=FALSE, message=FALSE}
+library(dplR)
+library(knitr)
+library(kableExtra)
+source(params$helpers)
+dat    <- params$rwlObject
+ed     <- params$editDF
+fname  <- params$fileName
+edited <- nrow(ed) > 0
+chk    <- params$checks
+gaps   <- rwlGaps(dat)
+ks <- function(x) kable_styling(x, bootstrap_options = c("striped", "hover", "condensed"),
+                                full_width = FALSE, position = "left")
 ```
 
 ### Date: `r Sys.Date()`
 
 ### File: `r fname`
 
-```{r,echo=FALSE}
-rwl.report(params$rwlObject)
+Made with xDateR using dplR `r packageVersion("dplR")`. The R code at the end
+reproduces everything in this report.
+
+`r if (fname == "xDateRtest.rwl") "The example data are in the data folder of the xDateR repository: https://github.com/OpenDendro/xDateR"`
+
+`r if (edited) "### Edits applied"`
+
+`r if (edited) paste0("This report describes the data after ", nrow(ed), " edit(s) made in xDateR, listed below in the order they were made. The R code replays them.")`
+
+```{r, echo=FALSE, comment=""}
+if (edited) writeLines(params$editLog)
 ```
 
-```{r,echo=FALSE, fig.width=10, fig.height=8}
-plot.rwl(params$rwlObject,plot.type = params$rwlPlotType)
+### Data summary
+
+```{r, echo=FALSE, comment=""}
+# the app's rwl.report(dat), passed in rather than recomputed: on a large
+# file it takes over a minute
+print(params$rwlReport)
 ```
 
-```{r,echo=FALSE}
-summary(params$rwlObject)
+`r if (nrow(gaps) > 0) "### Gaps (years with no measurement)"`
+
+`r if (nrow(gaps) > 0) "dplR reads these as missing, not as zero-width rings. Correlations skip them; the skeleton plot cannot be drawn across them; the spline filter (nyrs) stops on them."`
+
+```{r, echo=FALSE}
+if (nrow(gaps) > 0) {
+  kable(data.frame(Series = gaps$series, Years = formatGaps(gaps), check.names = FALSE),
+        row.names = FALSE) %>% ks()
+}
 ```
 
+### Data checks
+
+```{r, echo=FALSE, results="asis"}
+if (nrow(chk) == 0) {
+  cat("`rwl.check()` found nothing to flag.\n")
+} else {
+  n <- table(factor(chk$severity, levels = c("error", "warning", "note")))
+  cat(sprintf("`rwl.check()` found %d error(s), %d warning(s) and %d note(s).\n\n",
+              n[["error"]], n[["warning"]], n[["note"]]))
+}
+```
+
+```{r, echo=FALSE}
+serious <- chk[chk$severity %in% c("error", "warning"), ]
+if (nrow(serious) > 0) {
+  yrs <- ifelse(is.na(serious$year.from), "",
+                ifelse(is.na(serious$year.to) | serious$year.from == serious$year.to,
+                       serious$year.from, paste0(serious$year.from, "-", serious$year.to)))
+  kable(data.frame(Severity = serious$severity, Check = serious$check,
+                   Series = ifelse(is.na(serious$series), "", serious$series),
+                   Years = yrs, Finding = serious$message),
+        row.names = FALSE) %>% ks()
+}
+```
+
+```{r, echo=FALSE}
+notes <- chk[chk$severity == "note", ]
+if (nrow(notes) > 0) {
+  agg <- do.call(rbind, lapply(split(notes, notes$check), function(x) {
+    data.frame(Check = x$check[1], Findings = nrow(x),
+               Series = if (all(is.na(x$series))) "" else
+                 paste(sort(unique(x$series[!is.na(x$series)])), collapse = ", "))
+  }))
+  kable(agg, row.names = FALSE, caption = "Notes, one row per kind") %>% ks()
+}
+```
+
+### Plot
+
+```{r, echo=FALSE, fig.width=10, fig.height=8}
+plot(dat, plot.type = params$rwlPlotType)
+```
+
+### Series
+
+```{r, echo=FALSE}
+kable(summary(dat), row.names = FALSE, digits = 3) %>% ks()
+```
 
 ### R Code
-```
-library(dplR)
-dat <- read.rwl("`r fname`")
-rwl.report(dat)
-plot.rwl(dat,plot.type = "`r params$rwlPlotType`")
-summary(dat)
+
+```{r, echo=FALSE, comment=""}
+writeLines(c(dataCode(fname, ed, params$editCode), "",
+             "rwl.report(dat)",
+             paste0('chk <- rwl.check(dat, file = "', fname, '")'),
+             "as.data.frame(chk)",
+             paste0('plot(dat, plot.type = "', params$rwlPlotType, '")'),
+             "summary(dat)"))
 ```

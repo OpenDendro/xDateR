@@ -5,20 +5,14 @@ params:
   fileName: NA
   editLog: NA
   editDF: NA
+  editCode: NA
+  helpers: NA
 ---
 
-
-```{r,echo=FALSE}
-if(is.null(params$fileName)){
-  fname <- "DemoData.rwl"
-}
-
-if(!is.null(params$fileName)){
-  fname <- params$fileName
-  }
-
+```{r setup, echo=FALSE}
+fname <- if (is.null(params$fileName)) "DemoData.rwl" else params$fileName
+ed    <- params$editDF
 ```
-
 
 ### Date: `r Sys.Date()`
 
@@ -26,47 +20,28 @@ if(!is.null(params$fileName)){
 
 
 ### Log
-```{r} 
-params$editLog
+```{r, echo=FALSE, comment=""}
+writeLines(params$editLog)
 ```
 
 ### R Code
-```{r, echo=FALSE} 
-res <- list()
-for(i in 1:nrow(params$editDF)){
-  
-  if(params$editDF$action[i] == "delete.ring"){
-    res[i] <- paste("dat$",
-                    params$editDF$series[i],
-                    " <- delete.ring(rw.vec = dat$",
-                    params$editDF$series[i], 
-                    ", rw.vec.yrs = time(dat), year = ",
-                    params$editDF$year[i],
-                    ", fix.last=",
-                    params$editDF$fixLast[i],
-                    ")", sep="")
-  }
-  if(params$editDF$action[i] == "insert.ring"){
-    res[i] <- paste("dat$",
-                    params$editDF$series[i],
-                    " <- insert.ring(rw.vec = dat$",
-                    params$editDF$series[i], 
-                    ", rw.vec.yrs = time(dat), year = ",
-                    params$editDF$year[i],
-                    ", ring.value=",
-                    params$editDF$value[i],
-                    ", fix.last=",
-                    params$editDF$fixLast[i],
-                    ")", sep="")
-  }
-}
+
+The edits below use two small functions, `editRing()` and `fillGaps()`, that
+xDateR itself uses. They wrap dplR's `insert.ring()`, `delete.ring()` and
+`fill.internal.NA()` so that each edit changes only the series' own span and
+keeps the years of any gaps correct. Run the definitions first, then the edits
+in order: each edit's year refers to the data after the edits before it.
+As in dplR, `delete` removes the ring at `year` and `insert` adds the new
+ring after `year`.
+
+```{r, echo=FALSE, comment=""}
+source(params$helpers)
+writeLines(userCode(params$editCode))
 ```
 
-
-```
-library(dplR)
-dat <- read.rwl("`r fname`")
-```
-```{r} 
-res
+```{r, echo=FALSE, comment=""}
+source(params$helpers)
+writeLines(c("library(dplR)",
+             paste0('dat <- read.rwl("', fname, '")'),
+             editStepsCode(ed)))
 ```

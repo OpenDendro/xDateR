@@ -1,4 +1,12 @@
-plot.floater <- function(x, ...) {
+# params: the app's analysis parameters (xdParams()), so the envelope of
+# typical interseries correlation is computed the same way as the floater's
+# own correlations. NULL uses interseries.cor() defaults.
+#
+# x may carry the position in use (x$first, x$last, x$r), set by the app
+# when the user takes a position other than the best fit. The upper panel
+# always shows the series where x$rwlCombined has it; the lower panel then
+# marks that position in green and the best fit in grey.
+plot.floater <- function(x, params = NULL, ...) {
   series.name <- x$series.name
   floaterCorStats <- x$floaterCorStats
   rwlCombined <- x$rwlCombined
@@ -6,7 +14,12 @@ plot.floater <- function(x, ...) {
   # Quantile envelope from the dated master (excluding the floater)
   rwlOrig <- rwlCombined
   rwlOrig[, series.name] <- NULL
-  quantCor <- quantile(interseries.cor(rwlOrig)[, 1],
+  isc <- do.call(interseries.cor,
+                 c(list(rwl = rwlOrig),
+                   params[intersect(names(params),
+                                    c("n", "nyrs", "prewhiten",
+                                      "ar.order.max", "biweight", "method"))]))
+  quantCor <- quantile(isc[, 1],
                        probs = c(0.05, 0.5, 0.95))
   
   op <- par(no.readonly = TRUE)
@@ -26,14 +39,15 @@ plot.floater <- function(x, ...) {
   seg2col <- which(names(segs) == series.name)
   segs.axis2 <- names(segs)
   segs.axis4 <- names(segs)
-  segs.axis2[seq(2, n.col, by = 2)] <- NA
-  segs.axis4[seq(1, n.col, by = 2)] <- NA
+  segs.axis2[seq.col %% 2 == 0] <- NA
+  segs.axis4[seq.col %% 2 == 1] <- NA
   
   par(mfcol = c(2, 1))
   par(mar = c(-0.1, 5, 2, 5) + 0.1, mgp = c(1.1, 0.1, 0), tcl = 0.5,
       xaxs = "i", yaxs = "i")
+  xlim <- range(floaterCorStats$first, floaterCorStats$last, x$first, x$last)
   plot(yr, segs[[1]], type = "n", ylim = c(0, n.col + 1),
-       xlim = range(floaterCorStats$first, floaterCorStats$last),
+       xlim = xlim,
        axes = FALSE, ylab = "", xlab = "")
   abline(h = seq.col, lwd = 1, col = "grey")
   grid(ny = NA)
@@ -55,7 +69,7 @@ plot.floater <- function(x, ...) {
   par(mar = c(2, 5, -0.1, 5) + 0.1, yaxs = "r")
   plot(floaterCorStats$last, floaterCorStats$r,
        type = "n", xlab = "Year", ylab = "End Year Cor.",
-       xlim = range(floaterCorStats$first, floaterCorStats$last),
+       xlim = xlim,
        ylim = range(quantCor, floaterCorStats$r), axes = FALSE)
   xx <- c(min(floaterCorStats$first), max(floaterCorStats$last),
           max(floaterCorStats$last), min(floaterCorStats$first))
@@ -65,14 +79,23 @@ plot.floater <- function(x, ...) {
   lines(floaterCorStats$last, sig, lty = "dashed")
   lines(floaterCorStats$last, floaterCorStats$r, col = "grey")
   abline(h = 0)
-  points(lastBest,  rBestVal, col = "darkgreen", pch = 20)
-  points(firstBest, rBestVal, col = "darkgreen", pch = 20)
-  segments(x0 = firstBest, x1 = lastBest, y0 = rBestVal, y1 = rBestVal,
-           lty = "dashed", col = "darkgreen")
-  text(x = lastBest,  y = rBestVal, labels = lastBest,
-       col = "darkgreen", adj = c(0, 1))
-  text(x = firstBest, y = rBestVal, labels = firstBest,
-       col = "darkgreen", adj = c(1, 1))
+  mark <- function(first, last, r, col) {
+    points(c(first, last), c(r, r), col = col, pch = 20)
+    segments(x0 = first, x1 = last, y0 = r, y1 = r, lty = "dashed", col = col)
+    text(x = last,  y = r, labels = last,  col = col, adj = c(0, 1))
+    text(x = first, y = r, labels = first, col = col, adj = c(1, 1))
+  }
+  other <- !is.null(x$last) && x$last != lastBest
+  # the best fit: green when it is the position in use, grey when it is not
+  mark(firstBest, lastBest, rBestVal, if (other) "grey40" else "darkgreen")
+  if (other) {
+    if (!is.na(x$r)) {
+      mark(x$first, x$last, x$r, "darkgreen")
+    } else {
+      # a position with no correlation (too little overlap): show its span
+      abline(v = c(x$first, x$last), lty = "dashed", col = "darkgreen")
+    }
+  }
   axis(1); axis(2); box()
   
   invisible(x)

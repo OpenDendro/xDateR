@@ -1,2 +1,26 @@
-Duplicate names?
+# xDateR TODO
 
+## "Add to the dated file" button on the Floater panel
+
+Problem: a floater can be dated correctly and still have an error inside it
+(ABC110 in the example: the dates are right, but the 1816 ring is duplicated).
+The Floater panel cannot fix that. Today the user has to save the dates,
+download the dated .rwl with the master appended, load that file as a dated
+file, and fix the series on the Edit panel.
+
+Idea: once a floater's dates are saved, a button adds the series to the dated
+file in this session, so it can be opened on the Edit panel straight away.
+
+To settle before building:
+- The series must not join the master it was dated against until the user
+  says so (add it as left out of the master, or ask).
+- Reports must stay reproducible: the edit log and the R code in the reports
+  need a step that places the floater (the code report_undated_series.rmd
+  already prints for a hand-chosen position) before any edits to it.
+- Undo / Revert to original: what "original" means for a series that was not
+  in the dated file when it was loaded.
+- Fix Last Year: a floater is placed by the part that fits, so the default
+  may be wrong for it. Say which end to keep, or set it from the lag runs.
+- Name clash when the dated file already has a series of that name.
+- The Floater guide's last step and floaterFinished text would change to use
+  the button instead of download-and-reload.
