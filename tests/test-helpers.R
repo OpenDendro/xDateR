@@ -203,4 +203,7 @@ ok(nrow(floaterCandidates(fx, n = 3)) == 3, "and not listed twice when it is")
 ok(identical(fmtPsmall(c(0.0052, 4.85e-6, NA, 0.2, 0, 1e-30)), c("0.005", "5e-06", "", "0.200", "< 1e-10", "< 1e-10")),
    "small p-values keep their size, down to 1e-10")
 
+ok(!hanningFloaterOK("1.8.0") && hanningFloaterOK("1.8.1") && hanningFloaterOK("1.9.0"),
+   "the Floater panel refuses the Hanning filter before dplR 1.8.1 and allows it from 1.8.1")
+
 cat("all helper checks passed\n")

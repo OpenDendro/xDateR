@@ -766,4 +766,28 @@ testServer(srv, {
   ok(grepl(">p<", output$floaterCandsTable) || grepl('"p"', output$floaterCandsTable), "the candidates table has a p column")
 })
 
+# ── Floater with the Hanning filter ──────────────────────────────────────────
+# dplR 1.8.0 places a floater n/2 years too early with the Hanning filter, so
+# the Floater panel refuses it before 1.8.1. xdater.dplr.version stands in for
+# the installed version.
+testServer(srv, {
+  do.call(session$setInputs, c(list(useDemoDated = 1, useDemoUndated = 1,
+                                    minOverlapUndated = 50, series2 = "ABC110"),
+                               params))
+  # Set the version first: getFloater() is cached on the parameters, and an
+  # observer computes it as soon as they change.
+  options(xdater.dplr.version = "1.8.0")
+  session$setInputs(lowFreq = "hanning", n = "32")
+  msg <- tryCatch({getFloater(); ""}, error = function(e) conditionMessage(e))
+  ok(grepl("can't use the Hanning filter", msg) && grepl("16 years too early", msg),
+     "on dplR 1.8.0 the Floater panel refuses the Hanning filter and says why")
+  session$setInputs(lowFreq = "spline", nyrs = 32)
+  ok(!is.null(getFloater()$floaterCorStats), "on dplR 1.8.0 the spline still dates the floater")
+  # A different n, so the cached refusal above isn't what comes back
+  options(xdater.dplr.version = "1.8.1")
+  session$setInputs(lowFreq = "hanning", n = "20")
+  ok(!is.null(getFloater()$floaterCorStats), "on dplR 1.8.1 the Hanning filter is allowed again")
+  options(xdater.dplr.version = NULL)
+})
+
 cat("all server checks passed\n")

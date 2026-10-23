@@ -141,6 +141,18 @@ vecCode <- function(x) {
 # Analysis arguments passed to every dplR crossdating call.
 normArgs <- c("n", "nyrs", "prewhiten", "ar.order.max", "biweight")
 
+# ── hanningFloaterOK ──────────────────────────────────────────────────────────
+# dplR 1.8.0's xdate.floater() places a floater n/2 years too early when the
+# Hanning filter (n) is used: the filter takes n/2 rings off each end of the
+# series and the end year was worked out as if it took none off the end.
+# Fixed in dplR 1.8.1. Until the app runs on 1.8.1 the Floater panel refuses
+# the Hanning filter; the check lifts itself on 1.8.1. The option lets the
+# tests act as if an older dplR were installed.
+hanningFloaterOK <- function(version = getOption("xdater.dplr.version",
+                                                 packageVersion("dplR"))) {
+  package_version(version) >= "1.8.1"
+}
+
 # ── crsFlagged ────────────────────────────────────────────────────────────────
 # COFECHA-style A and B flags from a corr.rwl.seg() result run with lag.max,
 # one row per flagged segment. Mirrors dplR's internal report.flagged() (used

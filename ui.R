@@ -46,7 +46,7 @@ if (packageVersion("dplR") < "1.8.0") {
 
 # The version shown under About, so a user reporting a problem can say what
 # they were running. Change it with each deployment.
-xDateRVersion <- "2026.10"
+xDateRVersion <- "2026.10.1"
 
 # Uploads: Shiny's limit of 5 MB is left as it is. The largest ring-width
 # file in the ITRDB (chin067, 597 series) is 3.1 MB.
@@ -374,6 +374,10 @@ appSidebar <- sidebar(
       tags$details(
         class = "small mb-2",
         tags$summary(tags$strong(paste0("What's new in ", xDateRVersion))),
+        p(class = "mt-2 mb-1", tags$strong("Fixed in 2026.10.1:"), "the Floater panel",
+          "no longer offers the Hanning filter. With it, the version of dplR the app",
+          "runs on placed a floater half the filter length too early (16 years for",
+          "n = 32). Use the spline or no filter to date a floater."),
         p(class = "mt-2 mb-1", tags$em("Two changes mean a file you checked",
                                        "before can look different now:")),
         tags$ul(

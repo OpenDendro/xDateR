@@ -1019,6 +1019,14 @@ shinyServer(function(session, input, output) {
       if (sum(gap$n) == 1) "ring" else "rings",
       " or split the series at the gap into two series, then load it again.")))
     p  <- xdParams()
+    # dplR 1.8.0 dates a floater n/2 years too early with the Hanning filter
+    # (see hanningFloaterOK in appHelpers.R)
+    validate(need(is.null(p$n) || hanningFloaterOK(), paste0(
+      "The Floater panel can't use the Hanning filter with dplR ",
+      packageVersion("dplR"), ": this version places the series ",
+      p$n / 2, " years too early with it (half the filter length). ",
+      "Choose the spline or no low-frequency filter in the Analysis ",
+      "Parameters to date a floater. This is fixed in dplR 1.8.1.")))
     fo <- tryDplR(do.call(dplR::xdate.floater, c(
       list(rwl         = masterRWL(),
            series      = getRWLUndated()[, input$series2],
